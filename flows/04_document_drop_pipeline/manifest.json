@@ -1,0 +1,35 @@
+{
+  "id": "document_drop_pipeline",
+  "name": "Pipeline documental de entrada",
+  "family": "documentos",
+  "description": "Escanea un buzón documental, clasifica archivos y genera un resumen legible.",
+  "steps": [
+    {
+      "id": "scan_dropbox",
+      "action": "filesystem.list_directory",
+      "params": {"path": "{{ dropbox_path }}", "recursive": false},
+      "save_as": "inventory"
+    },
+    {
+      "id": "classify_dropbox",
+      "action": "filesystem.classify_file_inventory",
+      "params": {"files": "{{ inventory.files }}"},
+      "save_as": "stats"
+    },
+    {
+      "id": "summarize_texts",
+      "action": "filesystem.summarize_text_folder",
+      "params": {"path": "{{ dropbox_path }}", "max_files": 10, "max_chars_per_file": 500},
+      "save_as": "summary"
+    },
+    {
+      "id": "write_pipeline_report",
+      "action": "filesystem.write_json",
+      "params": {
+        "path": "output/reports/document_drop_pipeline_{now}.json",
+        "data": {"inventory": "{{ inventory }}", "stats": "{{ stats }}", "summary": "{{ summary }}"}
+      },
+      "save_as": "report"
+    }
+  ]
+}

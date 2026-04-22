@@ -1,0 +1,18 @@
+{
+  "id": "browser_assisted_capture",
+  "name": "Captura asistida por navegador",
+  "family": "navegador",
+  "description": "Abre una página local en el navegador, espera, captura pantalla y genera evidencia de ejecución.",
+  "steps": [
+    {"id": "open_control_page", "action": "ui.open_file_in_browser", "params": {"path": "data/web/control_page.html"}, "save_as": "browser"},
+    {"id": "wait_browser", "action": "system.wait_seconds", "params": {"seconds": 2}, "save_as": "delay"},
+    {"id": "capture_screen", "action": "screen.capture_screenshot", "params": {"output_path": "output/screenshots/browser_{now}.png"}, "save_as": "capture", "retries": 1},
+    {"id": "analyze_capture", "action": "vision.analyze_image", "params": {"image_path": "{{ capture.image_path }}", "analyzer": "metadata"}, "save_as": "analysis"},
+    {
+      "id": "write_report",
+      "action": "filesystem.write_json",
+      "params": {"path": "output/reports/browser_assisted_capture_{now}.json", "data": {"browser": "{{ browser }}", "capture": "{{ capture }}", "analysis": "{{ analysis }}"}},
+      "save_as": "report"
+    }
+  ]
+}

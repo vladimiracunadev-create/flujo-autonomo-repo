@@ -1,0 +1,29 @@
+{
+  "id": "folder_inventory",
+  "name": "Inventario de carpeta",
+  "family": "filesystem",
+  "description": "Lista una carpeta configurable y genera inventario + estadística simple por extensión.",
+  "steps": [
+    {
+      "id": "scan_folder",
+      "action": "filesystem.list_directory",
+      "params": {"path": "{{ path_override }}", "recursive": false},
+      "save_as": "inventory"
+    },
+    {
+      "id": "classify_inventory",
+      "action": "filesystem.classify_file_inventory",
+      "params": {"files": "{{ inventory.files }}"},
+      "save_as": "stats"
+    },
+    {
+      "id": "write_inventory",
+      "action": "filesystem.write_json",
+      "params": {
+        "path": "output/reports/folder_inventory_{now}.json",
+        "data": {"inventory": "{{ inventory }}", "stats": "{{ stats }}"}
+      },
+      "save_as": "inventory_report"
+    }
+  ]
+}

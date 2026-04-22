@@ -1,0 +1,17 @@
+{
+  "id": "ui_macro_recovery",
+  "name": "Macro de recuperación de UI",
+  "family": "escritorio",
+  "description": "Secuencia operativa base para recuperación mínima de UI y captura posterior de evidencia.",
+  "steps": [
+    {"id": "send_recovery_hotkey", "action": "ui.hotkey", "params": {"keys": ["esc"]}, "save_as": "hotkey_result"},
+    {"id": "wait_after_hotkey", "action": "system.wait_seconds", "params": {"seconds": 1}, "save_as": "delay"},
+    {"id": "capture_after_recovery", "action": "screen.capture_screenshot", "params": {"output_path": "output/screenshots/recovery_{now}.png"}, "save_as": "capture", "retries": 1},
+    {
+      "id": "write_report",
+      "action": "filesystem.write_json",
+      "params": {"path": "output/reports/ui_macro_recovery_{now}.json", "data": {"hotkey": "{{ hotkey_result }}", "capture": "{{ capture }}"}},
+      "save_as": "report"
+    }
+  ]
+}

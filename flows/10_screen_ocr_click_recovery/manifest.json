@@ -1,0 +1,65 @@
+{
+  "id": "screen_ocr_click_recovery",
+  "name": "OCR visual + click o recuperación",
+  "family": "pantalla",
+  "description": "Captura la pantalla, busca un texto por OCR y hace click en su bounding box. Si falla, intenta una recuperación por hotkey y reporta todo.",
+  "steps": [
+    {
+      "id": "capture_screen",
+      "action": "screen.capture_screenshot",
+      "params": {"output_path": "output/screenshots/ocr_flow_{now}.png"},
+      "save_as": "capture",
+      "retries": 1,
+      "transitions": [{"on": "failure", "next": "recover_ui"}]
+    },
+    {
+      "id": "find_target_text",
+      "action": "vision.find_text_in_image",
+      "params": {"image_path": "{{ capture.image_path }}", "query": "{{ query_text }}"},
+      "save_as": "match",
+      "transitions": [
+        {"on": "success", "when": {"path": "match.matched", "operator": "truthy"}, "next": "click_target"},
+        {"on": "success", "next": "recover_ui"},
+        {"on": "failure", "next": "recover_ui"}
+      ]
+    },
+    {
+      "id": "click_target",
+      "action": "ui.click_bbox",
+      "params": {"bbox": "{{ match.first_match }}"},
+      "save_as": "click_result",
+      "transitions": [
+        {"on": "success", "next": "capture_after_action"},
+        {"on": "failure", "next": "recover_ui"}
+      ]
+    },
+    {
+      "id": "recover_ui",
+      "action": "ui.hotkey",
+      "params": {"keys": "{{ recovery_hotkey }}"},
+      "save_as": "recovery_result"
+    },
+    {
+      "id": "capture_after_action",
+      "action": "screen.capture_screenshot",
+      "params": {"output_path": "output/screenshots/ocr_flow_after_{now}.png"},
+      "save_as": "after_capture",
+      "retries": 1
+    },
+    {
+      "id": "write_report",
+      "action": "filesystem.write_json",
+      "params": {
+        "path": "output/reports/screen_ocr_click_recovery_{now}.json",
+        "data": {
+          "capture": "{{ capture }}",
+          "match": "{{ match }}",
+          "click_result": "{{ click_result }}",
+          "recovery_result": "{{ recovery_result }}",
+          "after_capture": "{{ after_capture }}"
+        }
+      },
+      "save_as": "report"
+    }
+  ]
+}

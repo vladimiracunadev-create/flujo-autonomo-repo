@@ -1,0 +1,309 @@
+from __future__ import annotations
+
+import json
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional
+
+from engine.paths import root_dir
+
+DB_PATH = root_dir() / 'db' / 'runs.db'
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+@contextmanager
+def connect() -> Iterable[sqlite3.Connection]:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def init_db() -> None:
+    with connect() as conn:
+        conn.executescript(
+            '''
+            CREATE TABLE IF NOT EXISTS flows (
+                folder TEXT PRIMARY KEY,
+                flow_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                family TEXT,
+                description TEXT,
+                manifest_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS runs (
+                run_id TEXT PRIMARY KEY,
+                flow_id TEXT NOT NULL,
+                flow_folder TEXT NOT NULL,
+                flow_name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                finished_at TEXT,
+                duration_seconds REAL,
+                context_json TEXT,
+                outputs_json TEXT,
+                error_json TEXT,
+                state_path TEXT,
+                log_path TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS steps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL,
+                sequence_no INTEGER NOT NULL,
+                step_id TEXT NOT NULL,
+                action TEXT NOT NULL,
+                status TEXT NOT NULL,
+                attempt INTEGER NOT NULL,
+                params_json TEXT,
+                result_json TEXT,
+                error_text TEXT,
+                started_at TEXT,
+                finished_at TEXT,
+                duration_seconds REAL
+            );
+
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL,
+                event_time TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                payload_json TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS flow_configs (
+                folder TEXT PRIMARY KEY,
+                config_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS schedules (
+                folder TEXT PRIMARY KEY,
+                enabled INTEGER NOT NULL DEFAULT 0,
+                interval_seconds INTEGER,
+                next_run_at TEXT,
+                last_run_at TEXT,
+                updated_at TEXT NOT NULL
+            );
+            '''
+        )
+
+
+def sync_flows(flows: List[Dict[str, Any]]) -> None:
+    now = utc_now()
+    with connect() as conn:
+        for flow in flows:
+            conn.execute(
+                '''
+                INSERT INTO flows(folder, flow_id, name, family, description, manifest_json, updated_at)
+                VALUES(?,?,?,?,?,?,?)
+                ON CONFLICT(folder) DO UPDATE SET
+                    flow_id=excluded.flow_id,
+                    name=excluded.name,
+                    family=excluded.family,
+                    description=excluded.description,
+                    manifest_json=excluded.manifest_json,
+                    updated_at=excluded.updated_at
+                ''',
+                (
+                    flow['folder'],
+                    flow['id'],
+                    flow['name'],
+                    flow.get('family', 'general'),
+                    flow.get('description', ''),
+                    json.dumps(flow, ensure_ascii=False),
+                    now,
+                ),
+            )
+
+
+def upsert_run(state: Dict[str, Any], flow_folder: str, state_path: str, log_path: str) -> None:
+    with connect() as conn:
+        conn.execute(
+            '''
+            INSERT INTO runs(run_id, flow_id, flow_folder, flow_name, status, created_at, started_at, finished_at,
+                             duration_seconds, context_json, outputs_json, error_json, state_path, log_path)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(run_id) DO UPDATE SET
+                status=excluded.status,
+                started_at=excluded.started_at,
+                finished_at=excluded.finished_at,
+                duration_seconds=excluded.duration_seconds,
+                context_json=excluded.context_json,
+                outputs_json=excluded.outputs_json,
+                error_json=excluded.error_json,
+                state_path=excluded.state_path,
+                log_path=excluded.log_path
+            ''',
+            (
+                state['run_id'],
+                state['flow_id'],
+                flow_folder,
+                state['flow_name'],
+                state['status'],
+                state['created_at'],
+                state.get('started_at'),
+                state.get('finished_at'),
+                state.get('duration_seconds'),
+                json.dumps(state.get('context', {}), ensure_ascii=False),
+                json.dumps(state.get('outputs', []), ensure_ascii=False),
+                json.dumps(state.get('error'), ensure_ascii=False),
+                state_path,
+                log_path,
+            ),
+        )
+
+
+def insert_step(run_id: str, sequence_no: int, step_record: Dict[str, Any]) -> None:
+    with connect() as conn:
+        conn.execute(
+            '''
+            INSERT INTO steps(run_id, sequence_no, step_id, action, status, attempt, params_json, result_json,
+                              error_text, started_at, finished_at, duration_seconds)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+            ''',
+            (
+                run_id,
+                sequence_no,
+                step_record['step_id'],
+                step_record.get('action', ''),
+                step_record['status'],
+                int(step_record.get('attempt', 1)),
+                json.dumps(step_record.get('params'), ensure_ascii=False),
+                json.dumps(step_record.get('result'), ensure_ascii=False),
+                step_record.get('error'),
+                step_record.get('started_at'),
+                step_record.get('finished_at'),
+                step_record.get('duration_seconds'),
+            ),
+        )
+
+
+def insert_event(run_id: str, event_type: str, payload: Dict[str, Any], event_time: Optional[str] = None) -> None:
+    with connect() as conn:
+        conn.execute(
+            'INSERT INTO events(run_id, event_time, event_type, payload_json) VALUES(?,?,?,?)',
+            (
+                run_id,
+                event_time or utc_now(),
+                event_type,
+                json.dumps(payload, ensure_ascii=False),
+            ),
+        )
+
+
+def list_runs(flow_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+    query = 'SELECT * FROM runs'
+    params: List[Any] = []
+    if flow_id:
+        query += ' WHERE flow_id = ?'
+        params.append(flow_id)
+    query += ' ORDER BY created_at DESC LIMIT ?'
+    params.append(limit)
+    with connect() as conn:
+        rows = conn.execute(query, params).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_run(run_id: str) -> Optional[Dict[str, Any]]:
+    with connect() as conn:
+        row = conn.execute('SELECT * FROM runs WHERE run_id = ?', (run_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_steps(run_id: str) -> List[Dict[str, Any]]:
+    with connect() as conn:
+        rows = conn.execute('SELECT * FROM steps WHERE run_id = ? ORDER BY sequence_no ASC, id ASC', (run_id,)).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_events(run_id: str) -> List[Dict[str, Any]]:
+    with connect() as conn:
+        rows = conn.execute('SELECT * FROM events WHERE run_id = ? ORDER BY id ASC', (run_id,)).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_flow_config(folder: str) -> Optional[Dict[str, Any]]:
+    with connect() as conn:
+        row = conn.execute('SELECT config_json FROM flow_configs WHERE folder = ?', (folder,)).fetchone()
+    if not row:
+        return None
+    return json.loads(row['config_json'])
+
+
+def set_flow_config(folder: str, config: Dict[str, Any]) -> None:
+    config_path = root_dir() / 'configs' / f'{folder}.json'
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding='utf-8')
+    with connect() as conn:
+        conn.execute(
+            '''
+            INSERT INTO flow_configs(folder, config_json, updated_at)
+            VALUES(?,?,?)
+            ON CONFLICT(folder) DO UPDATE SET config_json=excluded.config_json, updated_at=excluded.updated_at
+            ''',
+            (folder, json.dumps(config, ensure_ascii=False), utc_now()),
+        )
+
+
+def get_schedule(folder: str) -> Dict[str, Any]:
+    with connect() as conn:
+        row = conn.execute('SELECT * FROM schedules WHERE folder = ?', (folder,)).fetchone()
+    if not row:
+        return {
+            'folder': folder,
+            'enabled': 0,
+            'interval_seconds': None,
+            'next_run_at': None,
+            'last_run_at': None,
+        }
+    return dict(row)
+
+
+def list_schedules() -> List[Dict[str, Any]]:
+    with connect() as conn:
+        rows = conn.execute('SELECT * FROM schedules ORDER BY folder ASC').fetchall()
+    return [dict(row) for row in rows]
+
+
+def set_schedule(folder: str, enabled: bool, interval_seconds: Optional[int]) -> Dict[str, Any]:
+    now = utc_now()
+    next_run_at = now if enabled and interval_seconds else None
+    with connect() as conn:
+        conn.execute(
+            '''
+            INSERT INTO schedules(folder, enabled, interval_seconds, next_run_at, last_run_at, updated_at)
+            VALUES(?,?,?,?,?,?)
+            ON CONFLICT(folder) DO UPDATE SET
+                enabled=excluded.enabled,
+                interval_seconds=excluded.interval_seconds,
+                next_run_at=excluded.next_run_at,
+                updated_at=excluded.updated_at
+            ''',
+            (folder, int(enabled), interval_seconds, next_run_at, None, now),
+        )
+    return get_schedule(folder)
+
+
+def mark_schedule_run(folder: str, interval_seconds: Optional[int]) -> None:
+    now = datetime.now(timezone.utc)
+    next_run = None
+    if interval_seconds:
+        next_run = datetime.fromtimestamp(now.timestamp() + interval_seconds, tz=timezone.utc).isoformat()
+    with connect() as conn:
+        conn.execute(
+            'UPDATE schedules SET last_run_at = ?, next_run_at = ?, updated_at = ? WHERE folder = ?',
+            (now.isoformat(), next_run, now.isoformat(), folder),
+        )

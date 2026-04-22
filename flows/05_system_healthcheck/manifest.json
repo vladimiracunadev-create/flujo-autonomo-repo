@@ -1,0 +1,31 @@
+{
+  "id": "system_healthcheck",
+  "name": "Healthcheck del sistema",
+  "family": "sistema",
+  "description": "Genera snapshot del sistema y clasifica su estado por umbrales básicos.",
+  "steps": [
+    {"id": "take_snapshot", "action": "system.snapshot_system", "params": {}, "save_as": "snapshot"},
+    {
+      "id": "evaluate_snapshot",
+      "action": "rules.evaluate",
+      "params": {
+        "input_data": {"snapshot": "{{ snapshot }}"},
+        "default_status": "ok",
+        "rules": [
+          {"id": "memoria_alta", "path": "snapshot.memory_percent", "operator": "gt", "value": 85, "status": "alerta", "message": "Uso de memoria alto."},
+          {"id": "cpu_alta", "path": "snapshot.cpu_percent", "operator": "gt", "value": 90, "status": "alerta", "message": "Uso de CPU alto."}
+        ]
+      },
+      "save_as": "decision"
+    },
+    {
+      "id": "write_snapshot",
+      "action": "filesystem.write_json",
+      "params": {
+        "path": "output/reports/system_health_{now}.json",
+        "data": {"snapshot": "{{ snapshot }}", "decision": "{{ decision }}"}
+      },
+      "save_as": "snapshot_report"
+    }
+  ]
+}

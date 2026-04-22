@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+db/*.db
+db/*.db-*
+logs/*.jsonl
+state/*.json
+output/**/*.png
+output/**/*.json
+output/**/*.tmp

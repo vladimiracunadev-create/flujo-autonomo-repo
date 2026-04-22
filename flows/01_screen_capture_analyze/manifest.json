@@ -1,0 +1,30 @@
+{
+  "id": "screen_capture_analyze",
+  "name": "Captura y análisis local de pantalla",
+  "family": "pantalla",
+  "description": "Captura la pantalla, ejecuta un analizador local y deja un reporte físico.",
+  "steps": [
+    {
+      "id": "capture_screen",
+      "action": "screen.capture_screenshot",
+      "params": {"output_path": "output/screenshots/screen_{now}.png"},
+      "save_as": "capture",
+      "retries": 1
+    },
+    {
+      "id": "analyze_capture",
+      "action": "vision.analyze_image",
+      "params": {"image_path": "{{ capture.image_path }}", "analyzer": "{{ analyzer_override }}"},
+      "save_as": "analysis"
+    },
+    {
+      "id": "write_report",
+      "action": "filesystem.write_json",
+      "params": {
+        "path": "output/reports/screen_capture_analyze_{now}.json",
+        "data": {"capture": "{{ capture }}", "analysis": "{{ analysis }}"}
+      },
+      "save_as": "report"
+    }
+  ]
+}

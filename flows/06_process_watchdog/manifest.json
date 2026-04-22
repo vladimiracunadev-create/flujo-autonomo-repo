@@ -1,0 +1,21 @@
+{
+  "id": "process_watchdog",
+  "name": "Watchdog de procesos",
+  "family": "sistema",
+  "description": "Extrae procesos principales y marca alertas por CPU o memoria.",
+  "steps": [
+    {"id": "top_processes", "action": "system.top_processes", "params": {"limit": 10, "sort_by": "memory"}, "save_as": "top"},
+    {
+      "id": "watch_processes",
+      "action": "system.watch_processes",
+      "params": {"processes": "{{ top.processes }}", "memory_mb_threshold": 150, "cpu_percent_threshold": 70},
+      "save_as": "watch"
+    },
+    {
+      "id": "write_report",
+      "action": "filesystem.write_json",
+      "params": {"path": "output/reports/process_watchdog_{now}.json", "data": {"top": "{{ top }}", "watch": "{{ watch }}"}},
+      "save_as": "report"
+    }
+  ]
+}

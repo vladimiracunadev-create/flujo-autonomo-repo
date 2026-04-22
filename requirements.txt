@@ -1,0 +1,6 @@
+Pillow
+psutil
+requests
+mss
+pyautogui
+pytesseract

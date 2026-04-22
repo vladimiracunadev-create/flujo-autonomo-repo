@@ -1,0 +1,98 @@
+{
+  "id": "screen_tri_mode_operator",
+  "name": "Operador visual tri-modo (OCR / visión / híbrido)",
+  "family": "pantalla",
+  "description": "Usa una imagen existente o captura pantalla, analiza en modo OCR, visión o híbrido, decide click o recuperación y deja evidencia completa.",
+  "steps": [
+    {
+      "id": "use_existing_image",
+      "action": "vision.select_image",
+      "when": {"path": "image_override", "operator": "exists"},
+      "params": {"image_path": "{{ image_override }}"},
+      "save_as": "capture",
+      "transitions": [{"on": "success", "next": "inspect_target"}]
+    },
+    {
+      "id": "capture_screen",
+      "action": "screen.capture_screenshot",
+      "when": {"path": "image_override", "operator": "not_exists"},
+      "params": {"output_path": "output/screenshots/tri_mode_{now}.png"},
+      "save_as": "capture",
+      "retries": 1,
+      "transitions": [{"on": "failure", "next": "recover_ui"}]
+    },
+    {
+      "id": "inspect_target",
+      "action": "vision.inspect_screen_target",
+      "params": {
+        "image_path": "{{ capture.image_path }}",
+        "mode": "{{ analysis_mode }}",
+        "query_text": "{{ query_text }}",
+        "vision_provider": "{{ vision_provider }}",
+        "vision_model": "{{ vision_model }}",
+        "vision_endpoint": "{{ vision_endpoint }}",
+        "vision_prompt": "{{ vision_prompt }}",
+        "vision_api_key_env": "{{ vision_api_key_env }}",
+        "fallback_bbox": "{{ fallback_bbox }}",
+        "prefer_source": "{{ prefer_source }}"
+      },
+      "save_as": "analysis",
+      "transitions": [
+        {"on": "success", "when": {"path": "analysis.target_found", "operator": "truthy"}, "next": "click_target"},
+        {"on": "success", "next": "recover_ui"},
+        {"on": "failure", "next": "recover_ui"}
+      ]
+    },
+    {
+      "id": "click_target",
+      "action": "ui.click_bbox",
+      "params": {"bbox": "{{ analysis.target_bbox }}", "dry_run": "{{ ui_dry_run }}"},
+      "save_as": "click_result",
+      "transitions": [
+        {"on": "success", "next": "capture_after_action"},
+        {"on": "failure", "next": "recover_ui"}
+      ]
+    },
+    {
+      "id": "recover_ui",
+      "action": "ui.hotkey",
+      "params": {"keys": "{{ recovery_hotkey }}", "dry_run": "{{ ui_dry_run }}"},
+      "save_as": "recovery_result",
+      "transitions": [{"on": "success", "next": "capture_after_action"}]
+    },
+    {
+      "id": "capture_after_action",
+      "action": "screen.capture_screenshot",
+      "when": {"path": "skip_after_capture", "operator": "falsy"},
+      "params": {"output_path": "output/screenshots/tri_mode_after_{now}.png"},
+      "save_as": "after_capture",
+      "transitions": [
+        {"on": "success", "next": "write_report"},
+        {"on": "failure", "next": "write_report"}
+      ]
+    },
+    {
+      "id": "write_report",
+      "action": "filesystem.write_json",
+      "params": {
+        "path": "output/reports/screen_tri_mode_operator_{now}.json",
+        "data": {
+          "capture": "{{ capture }}",
+          "analysis": "{{ analysis }}",
+          "click_result": "{{ click_result }}",
+          "recovery_result": "{{ recovery_result }}",
+          "after_capture": "{{ after_capture }}",
+          "effective_config": {
+            "analysis_mode": "{{ analysis_mode }}",
+            "vision_provider": "{{ vision_provider }}",
+            "vision_model": "{{ vision_model }}",
+            "vision_endpoint": "{{ vision_endpoint }}",
+            "prefer_source": "{{ prefer_source }}",
+            "ui_dry_run": "{{ ui_dry_run }}"
+          }
+        }
+      },
+      "save_as": "report"
+    }
+  ]
+}

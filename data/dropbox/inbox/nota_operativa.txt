@@ -1,0 +1,2 @@
+Incidente: ventana bloqueada al exportar reporte.
+Acción sugerida: cerrar modal, reintentar exportación, capturar evidencia.
