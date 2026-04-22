@@ -119,7 +119,7 @@ def render_home() -> bytes:
         )
     body = f'''
     <div class="card" style="margin-bottom:18px">
-      <p><strong>v5 operable:</strong> índice principal + ejecución real + histórico SQLite + scheduler + configuración por flujo + branching condicional + OCR, visión y modo híbrido.</p>
+      <p><strong>Primera versión operativa:</strong> índice principal + ejecución real + histórico SQLite + scheduler + configuración por flujo + branching condicional + OCR, visión y modo híbrido.</p>
       <p class="muted">Cada caso puede ejecutarse manualmente o quedar programado. El detalle de cada corrida guarda acciones, datos obtenidos, eventos y archivos generados.</p>
     </div>
     <div class="grid">{''.join(cards)}</div>

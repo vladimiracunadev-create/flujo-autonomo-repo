@@ -1,8 +1,31 @@
-# 08_ui_macro_recovery
+# 08 UI Macro Recovery
 
-**Familia:** escritorio / recuperación.
+**Familia:** escritorio.
 
-Plantilla mínima para representar una acción de recuperación sobre UI. Por defecto envía `Esc` y luego captura evidencia.
+Ejecuta una hotkey de recuperación, espera y captura evidencia posterior.
 
-## Advertencia
-Personaliza este flujo antes de usarlo en una aplicación real.
+## Cuándo Usarlo
+
+- probar acciones de UI;
+- ensayar una recuperación simple;
+- dejar evidencia visual después de una intervención.
+
+## Contexto
+
+El manifest usa `esc` como hotkey mínima.
+
+## Salida
+
+- resultado de hotkey;
+- captura posterior;
+- reporte JSON.
+
+## Riesgos
+
+Puede enviar teclas reales al escritorio. Usa una sesión controlada y adapta el flow si necesitas `dry_run`.
+
+## Ejecución
+
+```bash
+python -m engine.runner run flows/08_ui_macro_recovery
+```

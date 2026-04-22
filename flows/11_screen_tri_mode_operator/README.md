@@ -1,50 +1,66 @@
-# 11_screen_tri_mode_operator
+# 11 Screen Tri Mode Operator
 
 **Familia:** pantalla / escritorio.
 
-Caso operativo de pantalla con **tres modos de análisis**:
+Caso visual más completo del repositorio. Usa imagen existente o captura real, analiza objetivo en modo OCR, visión o híbrido, decide click o recuperación y deja evidencia completa.
 
-- **OCR**: extrae texto localmente con `pytesseract`.
-- **Visión**: usa un proveedor multimodal (`mock`, `openai_compatible` u `ollama`).
-- **Híbrido**: intenta OCR y visión, y elige una fuente prioritaria (`prefer_source`).
+## Cuándo Usarlo
 
-## Qué hace
-
-1. Usa una imagen existente si se configuró `image_override`, o captura pantalla si no existe.
-2. Analiza el objetivo visual según `analysis_mode`.
-3. Si encuentra bounding box, hace click (o `dry_run`).
-4. Si no encuentra objetivo, ejecuta una recuperación por hotkey (o `dry_run`).
-5. Guarda un reporte completo con resultados, diagnósticos y configuración efectiva.
+- comparar OCR contra visión multimodal;
+- probar automatización visual sin GUI mediante `image_override`;
+- operar con `dry_run` antes de permitir clicks reales;
+- documentar decisiones visuales con diagnóstico.
 
 ## Modos
 
-### OCR
-- Recomendado cuando el objetivo se reconoce por texto visible.
-- Más determinista para auditoría.
-- Requiere `pytesseract` y el binario Tesseract OCR en el equipo.
+| Modo | Uso |
+| --- | --- |
+| `ocr` | texto visible, labels estables, auditoría local |
+| `vision` | layout, iconos o contexto visual |
+| `hybrid` | OCR + visión con prioridad configurable |
 
-### Visión
-- Recomendado cuando importa el layout de pantalla, íconos o contexto visual.
-- Puede trabajar con proveedores multimodales externos o locales.
-- `mock` sirve para probar el flujo sin IA externa.
+## Proveedores
 
-### Híbrido
-- Une OCR + visión.
-- Sirve cuando el texto no siempre aparece claro o la detección visual necesita refuerzo.
-- `prefer_source` decide cuál bbox usar primero cuando ambos detectan algo.
-
-## Proveedores de visión
-
-- `mock`: sin OCR ni IA externa; útil para pruebas del proceso.
+- `mock`: pruebas sin IA externa.
 - `openai_compatible`: endpoint estilo `/chat/completions`.
 - `ollama`: endpoint local tipo `http://127.0.0.1:11434/api/chat`.
 
-## Modo prueba sin escritorio
+## Contexto
 
-Para pruebas automatizadas o entornos sin GUI:
+```json
+{
+  "analysis_mode": "vision",
+  "query_text": "Guardar",
+  "vision_provider": "mock",
+  "prefer_source": "ocr",
+  "fallback_bbox": {"left": 35, "top": 35, "width": 230, "height": 85},
+  "recovery_hotkey": ["esc"],
+  "ui_dry_run": true,
+  "skip_after_capture": true,
+  "image_override": "tests/assets/sample_ui.png"
+}
+```
 
-- configura `image_override` con una imagen existente
-- deja `ui_dry_run = true`
-- deja `skip_after_capture = true`
+## Salida
 
-Así el flujo corre completo, guarda histórico y no intenta interactuar con el escritorio real.
+- captura o selección de imagen;
+- análisis OCR/visión;
+- decisión `click` o `recover`;
+- resultado de click/hotkey;
+- reporte JSON con configuración efectiva.
+
+## Modo Seguro De Prueba
+
+Usa:
+
+- `image_override` con una imagen existente;
+- `ui_dry_run = true`;
+- `skip_after_capture = true`.
+
+Así el flow corre completo sin interactuar con el escritorio real.
+
+## Ejecución
+
+```bash
+python -m engine.runner run flows/11_screen_tri_mode_operator
+```

@@ -1,14 +1,32 @@
-# 02_screen_watchdog_rules
+# 02 Screen Watchdog Rules
 
-**Familia:** pantalla / vigilancia visual.
+**Familia:** pantalla.
 
-Caso orientado a detectar señales simples de salud visual de una interfaz y convertirlas en un estado operativo.
+Captura pantalla, analiza su estado visual y evalúa reglas declarativas para clasificar el resultado.
 
-## Idea
-Captura -> analiza -> clasifica -> reporta.
+## Cuándo Usarlo
 
-## Próxima evolución
-- OCR
-- comparación con imagen patrón
-- búsqueda de botón/ventana
-- detección de popup de error
+- detectar estados visuales básicos;
+- validar branching por reglas sin tocar UI;
+- generar evidencia de pantalla para auditoría local.
+
+## Contexto
+
+Usa el analizador `mock` por defecto para operar sin IA externa.
+
+## Salida
+
+- captura en `output/screenshots/`;
+- reporte con `capture`, `analysis` y `decision`;
+- historial de pasos en SQLite.
+
+## Requisitos
+
+- escritorio gráfico si no se adapta a imagen existente;
+- permisos de captura.
+
+## Ejecución
+
+```bash
+python -m engine.runner run flows/02_screen_watchdog_rules
+```

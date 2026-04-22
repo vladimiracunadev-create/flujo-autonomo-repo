@@ -1,11 +1,34 @@
-# 04_document_drop_pipeline
+# 04 Document Drop Pipeline
 
-**Familia:** documentos / procesamiento de entrada.
+**Familia:** documentos.
 
-Caso interesante para buzones reales: una carpeta recibe archivos y el flujo genera una vista estructurada del lote.
+Escanea un buzón documental, clasifica archivos por extensión y resume archivos de texto compatibles.
 
-## Próxima evolución
-- OCR local
-- clasificación por reglas
-- inserción a base de datos
-- mover a procesados/error
+## Cuándo Usarlo
+
+- procesar una carpeta de entrada documental;
+- revisar archivos `.txt`, `.md`, `.log`, `.csv` o `.json`;
+- generar un reporte legible de un dropbox local.
+
+## Contexto
+
+```json
+{"dropbox_path": "data/dropbox/inbox"}
+```
+
+## Salida
+
+- inventario de archivos;
+- estadísticas por extensión;
+- previews de documentos de texto;
+- reporte JSON en `output/reports/`.
+
+## Riesgos
+
+Lee contenido textual hasta el límite configurado. Evita apuntarlo a carpetas con información sensible si no necesitas registrar previews.
+
+## Ejecución
+
+```bash
+python -m engine.runner run flows/04_document_drop_pipeline
+```
