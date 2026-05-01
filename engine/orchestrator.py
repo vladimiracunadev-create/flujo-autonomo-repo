@@ -10,6 +10,7 @@ from engine.database import init_db, insert_step, upsert_run
 from engine.introspection import extract_existing_paths
 from engine.loader import FlowLoader
 from engine.logger import JsonlLogger
+from engine.sandbox import SandboxPolicy, SandboxViolation
 from engine.state_store import StateStore
 from engine.template import render_value
 
@@ -24,6 +25,12 @@ class Orchestrator:
         self.flow_dir = flow_dir
         self.definition = FlowLoader.load_manifest(flow_dir)
         self.context = FlowLoader.load_context(flow_dir, context_path)
+        self.policy = SandboxPolicy(
+            allowed_actions=self.definition.allowed_actions,
+            required_secrets=self.definition.required_secrets,
+            allowed_paths=self.definition.allowed_paths,
+            max_runtime_seconds=self.definition.max_runtime_seconds,
+        )
         self.run_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
         self.log_path = Path('logs') / f'{self.definition.id}_{self.run_id}.jsonl'
         self.state_path = Path('state') / f'{self.definition.id}_{self.run_id}.json'
@@ -82,10 +89,22 @@ class Orchestrator:
 
     def run(self) -> Dict[str, Any]:
         started_at = datetime.now(timezone.utc)
+        try:
+            self.policy.assert_secrets_present()
+        except SandboxViolation as exc:
+            self.state['status'] = 'failed'
+            self.state['error'] = {'message': str(exc), 'kind': 'sandbox_violation'}
+            self._persist()
+            self.logger.write('flow_blocked', {'reason': str(exc)})
+            raise FlowExecutionError(str(exc)) from exc
         self.state['status'] = 'running'
         self.state['started_at'] = started_at.isoformat()
+        self.state['policy'] = self.policy.summary()
         self._persist()
-        self.logger.write('flow_started', {'flow_id': self.definition.id, 'run_id': self.run_id})
+        self.logger.write(
+            'flow_started',
+            {'flow_id': self.definition.id, 'run_id': self.run_id, 'policy': self.policy.summary()},
+        )
 
         current_step_id = self.definition.start_step or (self.step_order[0] if self.step_order else None)
         executed_count = 0
@@ -122,10 +141,32 @@ class Orchestrator:
                     executed_count += 1
                     continue
 
+                try:
+                    self.policy.assert_action_allowed(step.action)
+                except SandboxViolation as exc:
+                    self.state['status'] = 'failed'
+                    self.state['error'] = {'step_id': step.id, 'message': str(exc), 'kind': 'sandbox_violation'}
+                    self._persist()
+                    self.logger.write('step_blocked', {'step_id': step.id, 'reason': str(exc)})
+                    raise FlowExecutionError(str(exc)) from exc
                 rendered_params = render_value(step.params, self.context)
+                try:
+                    self.policy.assert_paths_allowed(rendered_params)
+                except SandboxViolation as exc:
+                    self.state['status'] = 'failed'
+                    self.state['error'] = {'step_id': step.id, 'message': str(exc), 'kind': 'sandbox_violation'}
+                    self._persist()
+                    self.logger.write('step_blocked', {'step_id': step.id, 'reason': str(exc)})
+                    raise FlowExecutionError(str(exc)) from exc
                 action = ACTION_REGISTRY.get(step.action)
                 if action is None:
                     raise FlowExecutionError(f'Acción no registrada: {step.action}')
+                if self.policy.max_runtime_seconds is not None:
+                    elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
+                    if elapsed > self.policy.max_runtime_seconds:
+                        raise FlowExecutionError(
+                            f'Se superó max_runtime_seconds={self.policy.max_runtime_seconds}s'
+                        )
 
                 attempts = 0
                 while attempts <= step.retries:

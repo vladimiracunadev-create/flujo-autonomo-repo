@@ -25,6 +25,17 @@
       "items": { "type": "string" },
       "uniqueItems": true
     },
+    "allowed_paths": {
+      "description": "Prefijos de ruta donde el flow puede leer o escribir.",
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "max_runtime_seconds": {
+      "description": "Corta el flow si la corrida supera este tiempo total.",
+      "type": "number",
+      "minimum": 0
+    },
     "steps": {
       "type": "array",
       "minItems": 1,

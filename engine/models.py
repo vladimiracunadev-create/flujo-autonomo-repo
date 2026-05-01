@@ -32,3 +32,7 @@ class FlowDefinition:
     family: str = "general"
     start_step: Optional[str] = None
     max_steps_per_run: int = 200
+    allowed_actions: Optional[List[str]] = None
+    required_secrets: List[str] = field(default_factory=list)
+    allowed_paths: Optional[List[str]] = None
+    max_runtime_seconds: Optional[float] = None

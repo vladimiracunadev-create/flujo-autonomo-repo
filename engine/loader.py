@@ -45,6 +45,14 @@ class FlowLoader:
             start_step=raw.get('start_step'),
             max_steps_per_run=int(raw.get('max_steps_per_run', 200)),
             steps=steps,
+            allowed_actions=list(raw['allowed_actions']) if raw.get('allowed_actions') else None,
+            required_secrets=list(raw.get('required_secrets') or []),
+            allowed_paths=list(raw['allowed_paths']) if raw.get('allowed_paths') else None,
+            max_runtime_seconds=(
+                float(raw['max_runtime_seconds'])
+                if raw.get('max_runtime_seconds') is not None
+                else None
+            ),
         )
 
     @staticmethod
