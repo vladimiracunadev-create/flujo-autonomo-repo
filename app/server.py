@@ -22,6 +22,7 @@ from engine.database import get_flow_config, get_schedule, init_db, set_flow_con
 from engine.metrics import by_flow as metrics_by_flow, overview as metrics_overview, prometheus_text
 from engine.orchestrator import FlowExecutionError, Orchestrator
 from engine.scheduler import SchedulerService
+from engine.secrets import get_secret
 
 ROOT = root_dir()
 SCHEDULER = SchedulerService(loop_sleep_seconds=2.0)
@@ -430,9 +431,42 @@ class AppHandler(BaseHTTPRequestHandler):
             return
         return self._send_html(html_page('No encontrado', '<p>Ruta inexistente.</p>'), status=404)
 
+    def _check_webhook_token(self) -> bool:
+        """Compara el header X-Flujo-Token con el secreto FLUJO_WEBHOOK_TOKEN.
+
+        Si el secreto no está definido, el endpoint queda deshabilitado por defecto.
+        """
+        expected = get_secret('FLUJO_WEBHOOK_TOKEN')
+        if not expected:
+            return False
+        provided = self.headers.get('X-Flujo-Token', '')
+        return bool(provided) and provided == expected
+
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+        if path.startswith('/api/hook/'):
+            folder = path[len('/api/hook/'):].strip('/')
+            if not folder:
+                return self._send_json({'ok': False, 'error': 'folder requerido'}, status=400)
+            if not self._check_webhook_token():
+                return self._send_json(
+                    {'ok': False, 'error': 'token inválido o FLUJO_WEBHOOK_TOKEN no configurado'},
+                    status=401,
+                )
+            flow = get_flow_by_folder(folder)
+            if not flow:
+                return self._send_json({'ok': False, 'error': 'flow no encontrado'}, status=404)
+            try:
+                state = Orchestrator(Path(flow['flow_path'])).run()
+                return self._send_json({
+                    'ok': True,
+                    'run_id': state['run_id'],
+                    'status': state['status'],
+                    'flow_id': state['flow_id'],
+                })
+            except FlowExecutionError as exc:
+                return self._send_json({'ok': False, 'error': str(exc)}, status=500)
         if path == '/run':
             params = parse_qs(parsed.query)
             folder = params.get('flow', [''])[0]
