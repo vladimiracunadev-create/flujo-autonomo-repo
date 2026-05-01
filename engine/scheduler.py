@@ -4,19 +4,33 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from engine.catalog import get_flow_by_folder
-from engine.database import get_schedule, init_db, list_schedules, mark_schedule_run
+from engine.database import (
+    acquire_run_lock,
+    init_db,
+    list_schedules,
+    mark_schedule_run,
+    release_run_lock,
+)
 from engine.orchestrator import Orchestrator
 
 
 class SchedulerService:
+    """Bucle simple que dispara flows según schedules en SQLite.
+
+    - Persiste estado en la tabla ``schedules`` (intervalo o cron).
+    - Concurrencia: usa ``run_locks`` para evitar lanzar el mismo flow dos
+      veces en paralelo aunque haya múltiples instancias del scheduler vivas.
+    - Tolerante a fallos: una excepción del orquestador se loggea pero no
+      mata el loop.
+    """
+
     def __init__(self, loop_sleep_seconds: float = 2.0) -> None:
         init_db()
         self.loop_sleep_seconds = loop_sleep_seconds
         self._stop = threading.Event()
-        self._running: Dict[str, bool] = {}
 
     def stop(self) -> None:
         self._stop.set()
@@ -26,7 +40,8 @@ class SchedulerService:
         thread.start()
         return self
 
-    def _should_run(self, schedule: Dict[str, object]) -> bool:
+    @staticmethod
+    def _should_run(schedule: Dict[str, Any]) -> bool:
         if not int(schedule.get('enabled') or 0):
             return False
         next_run_at = schedule.get('next_run_at')
@@ -35,28 +50,34 @@ class SchedulerService:
         due = datetime.fromisoformat(str(next_run_at).replace('Z', '+00:00'))
         return due <= datetime.now(timezone.utc)
 
-    def _run_job(self, folder: str, interval_seconds: Optional[int]) -> None:
-        self._running[folder] = True
+    def _run_job(self, folder: str, interval_seconds: Optional[int], cron_expression: Optional[str]) -> None:
+        run_id = datetime.now(timezone.utc).strftime('sched_%Y%m%dT%H%M%S%fZ')
+        if not acquire_run_lock(folder, run_id):
+            return
         try:
             flow = get_flow_by_folder(folder)
             if not flow:
                 return
-            orchestrator = Orchestrator(Path(flow['flow_path']))
-            orchestrator.run()
-            mark_schedule_run(folder, interval_seconds)
-        except Exception:
-            mark_schedule_run(folder, interval_seconds)
+            try:
+                Orchestrator(Path(flow['flow_path'])).run()
+            except Exception:
+                # No interrumpe el loop. El error queda en la corrida.
+                pass
+            mark_schedule_run(folder, interval_seconds, cron_expression)
         finally:
-            self._running[folder] = False
+            release_run_lock(folder, run_id)
 
     def run_pending_once(self) -> None:
         for schedule in list_schedules():
             folder = str(schedule['folder'])
-            if self._running.get(folder):
-                continue
             if self._should_run(schedule):
                 interval_seconds = schedule.get('interval_seconds')
-                thread = threading.Thread(target=self._run_job, args=(folder, interval_seconds), daemon=True)
+                cron_expression = schedule.get('cron_expression')
+                thread = threading.Thread(
+                    target=self._run_job,
+                    args=(folder, interval_seconds, cron_expression),
+                    daemon=True,
+                )
                 thread.start()
 
     def serve_forever(self) -> None:

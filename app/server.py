@@ -197,8 +197,10 @@ def render_flow_config(folder: str, message: str = '') -> bytes:
         <h2>Scheduler</h2>
         <form method="post" action="/flow/{folder}/schedule">
           <label><input type="checkbox" name="enabled" {'checked' if int(schedule.get('enabled') or 0) else ''}/> Activar scheduler</label>
-          <label>Intervalo en segundos</label>
+          <label>Intervalo en segundos (si no usas cron)</label>
           <input type="number" min="1" name="interval_seconds" value="{html.escape(str(schedule.get('interval_seconds') or 60))}" />
+          <label>Expresión cron (opcional, 5 campos: min hora dom mes dow)</label>
+          <input type="text" name="cron_expression" value="{html.escape(str(schedule.get('cron_expression') or ''))}" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:10px" placeholder="*/15 * * * *" />
           <div class="buttons"><button type="submit">Guardar scheduler</button></div>
         </form>
         <p><strong>Última ejecución programada:</strong> {html.escape(str(schedule.get('last_run_at') or 'n/a'))}</p>
@@ -365,9 +367,25 @@ class AppHandler(BaseHTTPRequestHandler):
             folder = parts[1]
             form = self._read_form()
             enabled = 'enabled' in form
-            interval_seconds = int(form.get('interval_seconds', ['60'])[0]) if enabled else None
-            set_schedule(folder, enabled=enabled, interval_seconds=interval_seconds)
-            return self._send_html(render_flow_config(folder, message='Scheduler actualizado.'))
+            cron_expression = (form.get('cron_expression', [''])[0] or '').strip() or None
+            interval_seconds = (
+                int(form.get('interval_seconds', ['60'])[0])
+                if enabled and not cron_expression
+                else None
+            )
+            try:
+                set_schedule(
+                    folder,
+                    enabled=enabled,
+                    interval_seconds=interval_seconds,
+                    cron_expression=cron_expression,
+                )
+                return self._send_html(render_flow_config(folder, message='Scheduler actualizado.'))
+            except Exception as exc:  # incluye CronExpressionError
+                return self._send_html(
+                    render_flow_config(folder, message=f'Error en scheduler: {exc}'),
+                    status=400,
+                )
         return self._send_html(html_page('No encontrado', '<p>Ruta POST inexistente.</p>'), status=404)
 
 

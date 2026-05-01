@@ -28,6 +28,12 @@ def connect() -> Iterable[sqlite3.Connection]:
         conn.close()
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+    cols = {row['name'] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(
@@ -89,16 +95,25 @@ def init_db() -> None:
                 updated_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS run_locks (
+                folder TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                acquired_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS schedules (
                 folder TEXT PRIMARY KEY,
                 enabled INTEGER NOT NULL DEFAULT 0,
                 interval_seconds INTEGER,
+                cron_expression TEXT,
                 next_run_at TEXT,
                 last_run_at TEXT,
                 updated_at TEXT NOT NULL
             );
             '''
         )
+        # Migración suave para bases preexistentes:
+        _ensure_column(conn, 'schedules', 'cron_expression', 'cron_expression TEXT')
 
 
 def sync_flows(flows: List[Dict[str, Any]]) -> None:
@@ -278,32 +293,86 @@ def list_schedules() -> List[Dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
-def set_schedule(folder: str, enabled: bool, interval_seconds: Optional[int]) -> Dict[str, Any]:
+def set_schedule(
+    folder: str,
+    enabled: bool,
+    interval_seconds: Optional[int] = None,
+    cron_expression: Optional[str] = None,
+) -> Dict[str, Any]:
     now = utc_now()
-    next_run_at = now if enabled and interval_seconds else None
+    next_run_at: Optional[str] = None
+    if enabled:
+        if cron_expression:
+            from engine.cron import next_after  # import local para evitar ciclos
+            next_run_at = next_after(cron_expression, datetime.now(timezone.utc)).isoformat()
+        elif interval_seconds:
+            next_run_at = now
     with connect() as conn:
         conn.execute(
             '''
-            INSERT INTO schedules(folder, enabled, interval_seconds, next_run_at, last_run_at, updated_at)
-            VALUES(?,?,?,?,?,?)
+            INSERT INTO schedules(folder, enabled, interval_seconds, cron_expression, next_run_at, last_run_at, updated_at)
+            VALUES(?,?,?,?,?,?,?)
             ON CONFLICT(folder) DO UPDATE SET
                 enabled=excluded.enabled,
                 interval_seconds=excluded.interval_seconds,
+                cron_expression=excluded.cron_expression,
                 next_run_at=excluded.next_run_at,
                 updated_at=excluded.updated_at
             ''',
-            (folder, int(enabled), interval_seconds, next_run_at, None, now),
+            (folder, int(enabled), interval_seconds, cron_expression, next_run_at, None, now),
         )
     return get_schedule(folder)
 
 
-def mark_schedule_run(folder: str, interval_seconds: Optional[int]) -> None:
+def mark_schedule_run(
+    folder: str,
+    interval_seconds: Optional[int] = None,
+    cron_expression: Optional[str] = None,
+) -> None:
     now = datetime.now(timezone.utc)
-    next_run = None
-    if interval_seconds:
+    next_run: Optional[str] = None
+    if cron_expression:
+        from engine.cron import next_after
+        try:
+            next_run = next_after(cron_expression, now).isoformat()
+        except Exception:
+            next_run = None
+    elif interval_seconds:
         next_run = datetime.fromtimestamp(now.timestamp() + interval_seconds, tz=timezone.utc).isoformat()
     with connect() as conn:
         conn.execute(
             'UPDATE schedules SET last_run_at = ?, next_run_at = ?, updated_at = ? WHERE folder = ?',
             (now.isoformat(), next_run, now.isoformat(), folder),
         )
+
+
+def acquire_run_lock(folder: str, run_id: str) -> bool:
+    """Lock por flow: True si se adquiere, False si ya hay una corrida activa."""
+    with connect() as conn:
+        try:
+            conn.execute(
+                'INSERT INTO run_locks(folder, run_id, acquired_at) VALUES(?,?,?)',
+                (folder, run_id, utc_now()),
+            )
+            return True
+        except sqlite3.IntegrityError:
+            return False
+
+
+def release_run_lock(folder: str, run_id: str) -> None:
+    with connect() as conn:
+        conn.execute(
+            'DELETE FROM run_locks WHERE folder = ? AND run_id = ?',
+            (folder, run_id),
+        )
+
+
+def list_run_locks() -> List[Dict[str, Any]]:
+    with connect() as conn:
+        rows = conn.execute('SELECT * FROM run_locks ORDER BY acquired_at ASC').fetchall()
+    return [dict(row) for row in rows]
+
+
+def force_release_lock(folder: str) -> None:
+    with connect() as conn:
+        conn.execute('DELETE FROM run_locks WHERE folder = ?', (folder,))
