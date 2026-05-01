@@ -7,6 +7,7 @@ import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 from engine.catalog import (
@@ -31,53 +32,227 @@ init_db()
 sync_flows(list_flows())
 
 
-def html_page(title: str, body: str) -> bytes:
+PAGE_CSS = '''
+:root {
+  --bg: #f4f7fb;
+  --surface: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --accent: #2563eb;
+  --accent-soft: #dbeafe;
+  --success: #166534;
+  --success-soft: #dcfce7;
+  --danger: #991b1b;
+  --danger-soft: #fee2e2;
+  --running: #1d4ed8;
+  --running-soft: #dbeafe;
+  --border: #e5e7eb;
+  --shadow: 0 10px 26px rgba(15, 23, 42, .07);
+  --radius: 16px;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  margin: 0; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased;
+}
+header.top {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: white; padding: 22px 28px; box-shadow: var(--shadow);
+}
+header.top .row { max-width: 1340px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+header.top h1 { margin: 0; font-size: 22px; font-weight: 600; }
+header.top .sub { color: #94a3b8; font-size: 13px; margin-top: 4px; }
+header.top a { color: #cbd5e1; text-decoration: none; font-size: 14px; }
+header.top a:hover { color: white; text-decoration: underline; }
+header.top .nav { display: flex; gap: 18px; }
+main { padding: 24px; max-width: 1340px; margin: 0 auto; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.tabs {
+  display: flex; gap: 4px; border-bottom: 2px solid var(--border);
+  margin-bottom: 22px; overflow-x: auto;
+}
+.tab-btn {
+  background: transparent; border: none; padding: 12px 20px;
+  font-size: 15px; font-weight: 600; color: var(--muted);
+  cursor: pointer; border-bottom: 3px solid transparent;
+  margin-bottom: -2px; display: inline-flex; align-items: center; gap: 8px;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn .count { background: var(--accent-soft); color: var(--accent); padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+.card {
+  background: var(--surface); border-radius: var(--radius); padding: 20px;
+  box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px;
+  border: 1px solid var(--border); transition: transform .12s ease, box-shadow .12s ease;
+}
+.card:hover { transform: translateY(-1px); box-shadow: 0 14px 32px rgba(15,23,42,.10); }
+.card h3 { margin: 4px 0 2px; font-size: 17px; }
+.card .muted { color: var(--muted); font-size: 13px; line-height: 1.5; min-height: 38px; }
+.card .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; font-size: 12px; }
+.card .meta span { background: #f1f5f9; padding: 4px 10px; border-radius: 999px; color: #475569; }
+.card .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+button, .button {
+  border: none; border-radius: 10px; padding: 9px 16px; font-size: 14px; font-weight: 500;
+  cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+  transition: background .12s ease, transform .06s ease;
+}
+button:active, .button:active { transform: translateY(1px); }
+.button.primary, button.primary { background: var(--accent); color: white; }
+.button.primary:hover, button.primary:hover { background: #1d4ed8; }
+.button.secondary, button.secondary { background: #e2e8f0; color: var(--text); }
+.button.secondary:hover, button.secondary:hover { background: #cbd5e1; }
+.button.ghost, button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.button.ghost:hover, button.ghost:hover { background: #f1f5f9; }
+.button.danger, button.danger { background: var(--danger-soft); color: var(--danger); }
+button[disabled] { opacity: .55; cursor: not-allowed; }
+
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+.badge.completed { background: var(--success-soft); color: var(--success); }
+.badge.failed { background: var(--danger-soft); color: var(--danger); }
+.badge.running { background: var(--running-soft); color: var(--running); }
+.badge.idle { background: #f1f5f9; color: var(--muted); }
+.badge.scheduled { background: #fef3c7; color: #92400e; }
+.dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+
+table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 14px; }
+th { background: #f8fafc; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+tbody tr:hover { background: #f8fafc; }
+tbody tr:last-child td { border-bottom: none; }
+
+.path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); }
+pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 12px; overflow: auto; font-size: 12px; line-height: 1.5; }
+
+input[type=text], input[type=number], textarea, select {
+  font-family: inherit; font-size: 14px; padding: 9px 12px;
+  border: 1px solid var(--border); border-radius: 10px; background: white; width: 100%;
+}
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+textarea { font-family: ui-monospace, monospace; min-height: 240px; }
+label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin: 12px 0 6px; }
+
+.toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.toolbar input { max-width: 320px; }
+
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--text); color: white; padding: 12px 18px; border-radius: 10px; box-shadow: var(--shadow); z-index: 9999; opacity: 0; transform: translateY(8px); transition: opacity .2s ease, transform .2s ease; max-width: 360px; }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.error { background: var(--danger); }
+.toast.success { background: var(--success); }
+
+.empty { text-align: center; padding: 48px 24px; color: var(--muted); }
+.empty h4 { margin: 0 0 6px; color: var(--text); }
+
+.thumb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.thumb { background: #f1f5f9; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+.thumb img { width: 100%; height: 130px; object-fit: cover; display: block; }
+.thumb .label { padding: 8px 10px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); background: white; word-break: break-all; }
+
+.two-col { display: grid; grid-template-columns: 1.1fr .9fr; gap: 18px; }
+@media (max-width: 960px) { .two-col { grid-template-columns: 1fr; } }
+
+.spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.live-status { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 16px; }
+'''
+
+
+PAGE_JS = '''
+function showTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.tab === name));
+  if (history.replaceState) history.replaceState(null, '', '#' + name);
+}
+function showToast(msg, kind) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + (kind || '');
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+async function runFlow(folder, btn) {
+  const card = btn.closest('.flow-card');
+  const status = card.querySelector('.live-status');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Ejecutando…';
+  status.innerHTML = '<span class="badge running"><span class="dot"></span>en ejecución</span>';
+  try {
+    const res = await fetch('/api/run/' + encodeURIComponent(folder), { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      const cls = data.status === 'completed' ? 'completed' : 'failed';
+      status.innerHTML = `<span class="badge ${cls}"><span class="dot"></span>${data.status}</span> · <a href="/run/${data.flow_id}/${data.run_id}">ver detalle</a>`;
+      showToast('Flow ejecutado: ' + data.status, data.status === 'completed' ? 'success' : 'error');
+    } else {
+      status.innerHTML = `<span class="badge failed"><span class="dot"></span>error</span> ${data.error || ''}`;
+      showToast('Error: ' + (data.error || 'desconocido'), 'error');
+    }
+  } catch (e) {
+    status.innerHTML = `<span class="badge failed"><span class="dot"></span>error de red</span>`;
+    showToast('Error de red', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Ejecutar';
+  }
+}
+function filterTable(inputId, tbodyId) {
+  const q = (document.getElementById(inputId).value || '').toLowerCase();
+  document.querySelectorAll('#' + tbodyId + ' tr').forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+window.addEventListener('DOMContentLoaded', () => {
+  const hash = (location.hash || '#run').replace('#', '');
+  if (['run','schedule','history'].includes(hash)) showTab(hash);
+});
+'''
+
+
+def html_page(title: str, body: str, active_nav: str = '') -> bytes:
+    nav_link = lambda key, label: (
+        f'<a href="/#{key}" {"style=color:white" if active_nav == key else ""}>{label}</a>'
+    )
     page = f'''<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>{html.escape(title)}</title>
-<style>
-body {{ font-family: Arial, sans-serif; margin:0; background:#f4f7fb; color:#1f2937; }}
-header {{ background:#0f172a; color:white; padding:20px 24px; }}
-main {{ padding:24px; max-width:1340px; margin:0 auto; }}
-a {{ color:#1d4ed8; text-decoration:none; }}
-a:hover {{ text-decoration:underline; }}
-.grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:16px; }}
-.card {{ background:white; border-radius:18px; padding:18px; box-shadow:0 10px 26px rgba(0,0,0,.06); }}
-.buttons {{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }}
-button, .button {{ border:none; border-radius:10px; padding:10px 14px; background:#111827; color:white; cursor:pointer; text-decoration:none; display:inline-block; }}
-.button.secondary {{ background:#e5e7eb; color:#111827; }}
-.button.success {{ background:#14532d; }}
-.button.warn {{ background:#9a3412; }}
-.badge {{ display:inline-block; padding:4px 10px; border-radius:999px; font-size:12px; margin-right:6px; background:#e5e7eb; }}
-.ok {{ background:#dcfce7; color:#166534; }}
-.failed {{ background:#fee2e2; color:#991b1b; }}
-.running {{ background:#dbeafe; color:#1d4ed8; }}
-pre {{ background:#0f172a; color:#e2e8f0; padding:14px; border-radius:14px; overflow:auto; }}
-table {{ width:100%; border-collapse:collapse; background:white; border-radius:14px; overflow:hidden; }}
-th, td {{ padding:12px; border-bottom:1px solid #e5e7eb; text-align:left; vertical-align:top; }}
-textarea {{ width:100%; min-height:280px; font-family: ui-monospace, monospace; border-radius:12px; border:1px solid #cbd5e1; padding:12px; }}
-input[type='number'] {{ width:140px; padding:8px; border:1px solid #cbd5e1; border-radius:10px; }}
-label {{ display:block; margin-bottom:8px; font-weight:600; }}
-.two-col {{ display:grid; grid-template-columns:1.1fr .9fr; gap:18px; }}
-.muted {{ color:#6b7280; }}
-.path {{ font-family:ui-monospace,monospace; font-size:13px; }}
-@media (max-width:960px) {{ .two-col {{ grid-template-columns:1fr; }} }}
-</style>
+<style>{PAGE_CSS}</style>
 </head>
 <body>
-<header><div><a href="/" style="color:white">Inicio</a></div><h1 style="margin:10px 0 0 0">{html.escape(title)}</h1></header>
+<header class="top">
+  <div class="row">
+    <div>
+      <h1>Flujo Autónomo</h1>
+      <div class="sub">Orquestador local · panel operativo</div>
+    </div>
+    <div class="nav">
+      <a href="/">Inicio</a>
+      <a href="/metrics/dashboard">Métricas</a>
+      <a href="/api/metrics">API</a>
+    </div>
+  </div>
+</header>
 <main>{body}</main>
+<div id="toast" class="toast"></div>
+<script>{PAGE_JS}</script>
 </body>
 </html>'''
     return page.encode('utf-8')
 
 
 def badge(status: str) -> str:
-    cls = 'ok' if status == 'completed' else 'failed' if status == 'failed' else 'running'
-    return f'<span class="badge {cls}">{html.escape(status)}</span>'
+    cls = {
+        'completed': 'completed', 'failed': 'failed', 'running': 'running',
+    }.get(status, 'idle')
+    return f'<span class="badge {cls}"><span class="dot"></span>{html.escape(status)}</span>'
 
 
 def safe_json_loads(text: str | None):
@@ -89,74 +264,152 @@ def safe_json_loads(text: str | None):
         return text
 
 
+def _flow_card_run_tab(flow: dict, latest: dict | None) -> str:
+    status_html = badge(latest['status']) + f' · <a href="/run/{flow["id"]}/{latest["run_id"]}">último run</a>' if latest else '<span class="muted">sin ejecuciones aún</span>'
+    return f'''
+    <div class="card flow-card" data-folder="{html.escape(flow['folder'])}">
+      <div class="meta">
+        <span>{html.escape(flow.get('family','general'))}</span>
+        <span>{len(flow.get('steps',[]))} pasos</span>
+      </div>
+      <h3>{html.escape(flow['name'])}</h3>
+      <div class="muted">{html.escape(flow['description'] or '')}</div>
+      <div class="meta"><span class="path">{html.escape(flow['folder'])}</span></div>
+      <div class="actions">
+        <button class="primary" onclick="runFlow('{flow['folder']}', this)">Ejecutar</button>
+        <a class="button ghost" href="/flow/{flow['folder']}">Detalle</a>
+      </div>
+      <div class="live-status">{status_html}</div>
+    </div>
+    '''
+
+
+def _flow_card_schedule_tab(flow: dict, schedule: dict) -> str:
+    enabled = bool(int(schedule.get('enabled') or 0))
+    status_pill = (
+        '<span class="badge scheduled"><span class="dot"></span>activo</span>'
+        if enabled else '<span class="badge idle"><span class="dot"></span>inactivo</span>'
+    )
+    cron = html.escape(str(schedule.get('cron_expression') or ''))
+    interval = html.escape(str(schedule.get('interval_seconds') or 60))
+    next_run = html.escape(str(schedule.get('next_run_at') or '—'))
+    last_run = html.escape(str(schedule.get('last_run_at') or '—'))
+    return f'''
+    <div class="card">
+      <div class="meta"><span>{html.escape(flow.get('family','general'))}</span> {status_pill}</div>
+      <h3>{html.escape(flow['name'])}</h3>
+      <form method="post" action="/flow/{flow['folder']}/schedule" style="margin-top:8px">
+        <label><input type="checkbox" name="enabled" {'checked' if enabled else ''}/> Activar scheduler</label>
+        <label>Intervalo (segundos) — si no usas cron</label>
+        <input type="number" min="1" name="interval_seconds" value="{interval}" />
+        <label>Expresión cron (5 campos: min hora dom mes dow)</label>
+        <input type="text" name="cron_expression" value="{cron}" placeholder="*/15 * * * *" />
+        <div class="actions"><button class="primary" type="submit">Guardar</button>
+          <a class="button ghost" href="/flow/{flow['folder']}/config">Editar contexto</a>
+        </div>
+        <div class="meta" style="margin-top:10px">
+          <span>Próxima: {next_run}</span>
+          <span>Última: {last_run}</span>
+        </div>
+      </form>
+    </div>
+    '''
+
+
+def _history_row(run: dict) -> str:
+    duration = run.get('duration_seconds')
+    duration_text = f'{round(duration, 2)}s' if duration is not None else '—'
+    return (
+        f"<tr>"
+        f"<td><span class='path'>{html.escape(run['run_id'])}</span></td>"
+        f"<td>{html.escape(run['flow_name'])}</td>"
+        f"<td>{badge(run['status'])}</td>"
+        f"<td>{html.escape(str(run.get('created_at') or ''))}</td>"
+        f"<td>{duration_text}</td>"
+        f"<td><a class='button ghost' href='/run/{run['flow_id']}/{run['run_id']}'>Ver</a></td>"
+        f"</tr>"
+    )
+
+
 def render_home() -> bytes:
     flows = list_flows()
     runs = list_runs(limit=200)
-    runs_by_flow = {}
+    runs_by_flow: dict = {}
     for run in runs:
         runs_by_flow.setdefault(run['flow_id'], []).append(run)
-    cards = []
-    for flow in flows:
-        history = runs_by_flow.get(flow['id'], [])
-        latest = history[0] if history else None
-        schedule = get_schedule(flow['folder'])
-        cards.append(
-            f'''
-            <div class="card">
-              <div><span class="badge">{html.escape(flow.get('family','general'))}</span></div>
-              <h2 style="margin:8px 0 6px 0">{html.escape(flow['name'])}</h2>
-              <div class="muted">{html.escape(flow['description'])}</div>
-              <div style="margin-top:12px"><strong>Flujo:</strong> <span class="path">{html.escape(flow['folder'])}</span></div>
-              <div><strong>Pasos:</strong> {len(flow.get('steps', []))}</div>
-              <div><strong>Scheduler:</strong> {'activo cada ' + str(schedule.get('interval_seconds')) + 's' if int(schedule.get('enabled') or 0) else 'desactivado'}</div>
-              <div><strong>Última corrida:</strong> {badge(latest['status']) if latest else '<span class="muted">sin ejecuciones</span>'}</div>
-              <div class="buttons">
-                <form method="post" action="/run?flow={flow['folder']}" style="display:inline"><button type="submit">Ejecutar proceso</button></form>
-                <a class="button secondary" href="/flow/{flow['folder']}">Información</a>
-                <a class="button secondary" href="/flow/{flow['folder']}/config">Configurar</a>
-                <a class="button secondary" href="/flow/{flow['folder']}/history">Histórico</a>
-              </div>
-            </div>
-            '''
-        )
+
+    run_cards = ''.join(_flow_card_run_tab(flow, (runs_by_flow.get(flow['id']) or [None])[0]) for flow in flows)
+    schedule_cards = ''.join(_flow_card_schedule_tab(flow, get_schedule(flow['folder'])) for flow in flows)
+    history_rows = ''.join(_history_row(run) for run in runs) or '<tr><td colspan="6" class="empty">Sin corridas todavía. Ejecuta un flow para empezar.</td></tr>'
+
+    active_count = sum(1 for f in flows if int(get_schedule(f['folder']).get('enabled') or 0))
+    total_runs = len(runs)
+
     body = f'''
-    <div class="card" style="margin-bottom:18px">
-      <p><strong>Primera versión operativa:</strong> índice principal + ejecución real + histórico SQLite + scheduler + configuración por flujo + branching condicional + OCR, visión y modo híbrido.</p>
-      <p class="muted">Cada caso puede ejecutarse manualmente o quedar programado. El detalle de cada corrida guarda acciones, datos obtenidos, eventos y archivos generados.</p>
-      <div class="buttons">
-        <a class="button secondary" href="/metrics/dashboard">Ver métricas operativas</a>
-        <a class="button secondary" href="/api/metrics">API de métricas</a>
-      </div>
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" data-tab="run" onclick="showTab('run')">▶ Ejecutar <span class="count">{len(flows)}</span></button>
+      <button class="tab-btn" data-tab="schedule" onclick="showTab('schedule')">⏰ Programadas <span class="count">{active_count}</span></button>
+      <button class="tab-btn" data-tab="history" onclick="showTab('history')">📜 Histórico <span class="count">{total_runs}</span></button>
     </div>
-    <div class="grid">{''.join(cards)}</div>
+
+    <div class="tab-pane active" data-tab="run">
+      <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#eff6ff 0%,#f5f3ff 100%);border:none">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="flex:1">
+            <h3 style="margin:0">Ejecuta cualquier proceso con un clic</h3>
+            <div class="muted" style="margin-top:4px">Las salidas se guardan automáticamente en <span class="path">output/</span> y el detalle queda en el histórico.</div>
+          </div>
+        </div>
+      </div>
+      <div class="grid">{run_cards}</div>
+    </div>
+
+    <div class="tab-pane" data-tab="schedule">
+      <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#fff7ed 0%,#fef3c7 100%);border:none">
+        <div>
+          <h3 style="margin:0">Programa las mismas acciones</h3>
+          <div class="muted" style="margin-top:4px">Usa intervalo en segundos o una expresión cron de 5 campos. El scheduler local persiste en SQLite y respeta el lock por flow.</div>
+        </div>
+      </div>
+      <div class="grid">{schedule_cards}</div>
+    </div>
+
+    <div class="tab-pane" data-tab="history">
+      <div class="toolbar">
+        <input id="hist-search" type="text" placeholder="Filtrar por flow, run id, estado…" oninput="filterTable('hist-search','hist-tbody')" />
+        <span class="muted">{total_runs} corridas registradas</span>
+      </div>
+      <table>
+        <thead><tr><th>Run</th><th>Flow</th><th>Estado</th><th>Creado</th><th>Duración</th><th></th></tr></thead>
+        <tbody id="hist-tbody">{history_rows}</tbody>
+      </table>
+    </div>
     '''
-    return html_page('Centro de procesos autónomos', body)
+    return html_page('Centro de procesos · Flujo Autónomo', body, active_nav='home')
 
 
 def render_flow_info(folder: str) -> bytes:
     flow = get_flow_by_folder(folder)
     if not flow:
-        return html_page('No encontrado', '<p>Flujo inexistente.</p>')
+        return html_page('No encontrado', '<div class="empty"><h4>Flujo inexistente</h4><a class="button ghost" href="/">Volver</a></div>')
     readme = Path(flow['readme_path']).read_text(encoding='utf-8') if Path(flow['readme_path']).exists() else ''
     manifest = Path(flow['flow_path']) / 'manifest.json'
     manifest_text = manifest.read_text(encoding='utf-8')
     recent = list_runs(flow['id'], limit=10)
-    rows = ''.join(
-        f"<tr><td><a href='/run/{flow['id']}/{run['run_id']}'>{html.escape(run['run_id'])}</a></td><td>{badge(run['status'])}</td><td>{html.escape(str(run.get('created_at') or ''))}</td></tr>"
-        for run in recent
-    ) or '<tr><td colspan="3">Sin corridas</td></tr>'
+    rows = ''.join(_history_row(r) for r in recent) or '<tr><td colspan="6" class="empty">Sin corridas</td></tr>'
     body = f'''
+    <div class="toolbar"><a class="button ghost" href="/">← Volver</a></div>
     <div class="two-col">
       <div>
         <div class="card">
-          <div><span class="badge">{html.escape(flow.get('family','general'))}</span></div>
-          <h2>{html.escape(flow['name'])}</h2>
-          <p>{html.escape(flow['description'])}</p>
-          <div class="buttons">
-            <form method="post" action="/run?flow={flow['folder']}" style="display:inline"><button type="submit">Ejecutar ahora</button></form>
+          <div class="meta"><span>{html.escape(flow.get('family','general'))}</span></div>
+          <h3 style="margin-top:6px">{html.escape(flow['name'])}</h3>
+          <div class="muted">{html.escape(flow['description'])}</div>
+          <div class="actions">
+            <button class="primary flow-card" onclick="runFlow('{flow['folder']}', this)" data-folder="{flow['folder']}">Ejecutar ahora</button>
             <a class="button secondary" href="/flow/{flow['folder']}/config">Editar configuración</a>
-            <a class="button secondary" href="/flow/{flow['folder']}/history">Ver histórico</a>
           </div>
+          <div class="live-status"></div>
         </div>
         <div class="card" style="margin-top:16px">
           <h3>README del caso</h3>
@@ -170,69 +423,159 @@ def render_flow_info(folder: str) -> bytes:
         </div>
         <div class="card" style="margin-top:16px">
           <h3>Últimas corridas</h3>
-          <table><thead><tr><th>Run</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>{rows}</tbody></table>
+          <table>
+            <thead><tr><th>Run</th><th>Flow</th><th>Estado</th><th>Creado</th><th>Duración</th><th></th></tr></thead>
+            <tbody>{rows}</tbody>
+          </table>
         </div>
       </div>
     </div>
     '''
-    return html_page(f'Información: {flow["name"]}', body)
+    return html_page(f'{flow["name"]} · Flujo Autónomo', body)
 
 
 def render_flow_config(folder: str, message: str = '') -> bytes:
     flow = get_flow_by_folder(folder)
     if not flow:
-        return html_page('No encontrado', '<p>Flujo inexistente.</p>')
+        return html_page('No encontrado', '<div class="empty"><h4>Flujo inexistente</h4></div>')
     current = get_flow_config(folder)
     if current is None:
         current_path = Path(flow['context_example_path'])
         current = json.loads(current_path.read_text(encoding='utf-8')) if current_path.exists() else {}
     schedule = get_schedule(folder)
+    enabled = bool(int(schedule.get('enabled') or 0))
+    msg_html = f'<div class="card" style="background:var(--success-soft);border-color:#bbf7d0;color:var(--success)">{html.escape(message)}</div>' if message else ''
     body = f'''
+    <div class="toolbar"><a class="button ghost" href="/">← Volver</a></div>
+    {msg_html}
     <div class="two-col">
       <div class="card">
-        <h2>Configuración del flujo</h2>
-        <p class="muted">Lo que guardes aquí será el contexto operativo por defecto del caso.</p>
-        {f'<p><strong>{html.escape(message)}</strong></p>' if message else ''}
+        <h3>Configuración del flujo</h3>
+        <div class="muted">Lo que guardes aquí será el contexto operativo por defecto del caso.</div>
         <form method="post" action="/flow/{folder}/config">
           <label>JSON del contexto</label>
           <textarea name="config_json">{html.escape(json.dumps(current, ensure_ascii=False, indent=2))}</textarea>
-          <div class="buttons"><button type="submit">Guardar configuración</button></div>
+          <div class="actions"><button class="primary" type="submit">Guardar configuración</button></div>
         </form>
       </div>
       <div class="card">
-        <h2>Scheduler</h2>
+        <h3>Scheduler</h3>
         <form method="post" action="/flow/{folder}/schedule">
-          <label><input type="checkbox" name="enabled" {'checked' if int(schedule.get('enabled') or 0) else ''}/> Activar scheduler</label>
-          <label>Intervalo en segundos (si no usas cron)</label>
+          <label><input type="checkbox" name="enabled" {'checked' if enabled else ''}/> Activar scheduler</label>
+          <label>Intervalo en segundos</label>
           <input type="number" min="1" name="interval_seconds" value="{html.escape(str(schedule.get('interval_seconds') or 60))}" />
-          <label>Expresión cron (opcional, 5 campos: min hora dom mes dow)</label>
-          <input type="text" name="cron_expression" value="{html.escape(str(schedule.get('cron_expression') or ''))}" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:10px" placeholder="*/15 * * * *" />
-          <div class="buttons"><button type="submit">Guardar scheduler</button></div>
+          <label>Expresión cron (5 campos: min hora dom mes dow)</label>
+          <input type="text" name="cron_expression" value="{html.escape(str(schedule.get('cron_expression') or ''))}" placeholder="*/15 * * * *" />
+          <div class="actions"><button class="primary" type="submit">Guardar scheduler</button></div>
         </form>
-        <p><strong>Última ejecución programada:</strong> {html.escape(str(schedule.get('last_run_at') or 'n/a'))}</p>
-        <p><strong>Próxima ejecución:</strong> {html.escape(str(schedule.get('next_run_at') or 'n/a'))}</p>
+        <div class="meta" style="margin-top:12px">
+          <span>Próxima: {html.escape(str(schedule.get('next_run_at') or '—'))}</span>
+          <span>Última: {html.escape(str(schedule.get('last_run_at') or '—'))}</span>
+        </div>
       </div>
     </div>
     '''
-    return html_page(f'Configurar: {flow["name"]}', body)
+    return html_page(f'Configurar · {flow["name"]}', body)
 
 
 def render_flow_history(folder: str) -> bytes:
     flow = get_flow_by_folder(folder)
     if not flow:
-        return html_page('No encontrado', '<p>Flujo inexistente.</p>')
+        return html_page('No encontrado', '<div class="empty"><h4>Flujo inexistente</h4></div>')
     runs = list_runs(flow['id'], limit=100)
-    rows = ''.join(
-        f"<tr><td><a href='/run/{flow['id']}/{run['run_id']}'>{html.escape(run['run_id'])}</a></td><td>{badge(run['status'])}</td><td>{html.escape(str(run.get('created_at') or ''))}</td><td>{html.escape(str(run.get('duration_seconds') or ''))}</td></tr>"
-        for run in runs
-    ) or '<tr><td colspan="4">Sin corridas</td></tr>'
+    rows = ''.join(_history_row(r) for r in runs) or '<tr><td colspan="6" class="empty">Sin corridas</td></tr>'
     body = f'''
+    <div class="toolbar"><a class="button ghost" href="/">← Volver</a></div>
     <div class="card">
-      <h2>Histórico: {html.escape(flow['name'])}</h2>
-      <table><thead><tr><th>Run</th><th>Estado</th><th>Creado</th><th>Duración (s)</th></tr></thead><tbody>{rows}</tbody></table>
+      <h3>Histórico — {html.escape(flow['name'])}</h3>
+      <table>
+        <thead><tr><th>Run</th><th>Flow</th><th>Estado</th><th>Creado</th><th>Duración</th><th></th></tr></thead>
+        <tbody>{rows}</tbody>
+      </table>
     </div>
     '''
-    return html_page(f'Histórico: {flow["name"]}', body)
+    return html_page(f'Histórico · {flow["name"]}', body)
+
+
+def _output_thumb(item: dict) -> str:
+    path = item.get('path', '')
+    name = item.get('name', path)
+    is_image = path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))
+    file_url = f"/file?path={html.escape(path)}"
+    if is_image:
+        return f'''
+        <div class="thumb">
+          <a href="{file_url}" target="_blank"><img src="{file_url}" alt="{html.escape(name)}" loading="lazy" /></a>
+          <div class="label">{html.escape(name)}</div>
+        </div>
+        '''
+    return f'''
+    <div class="thumb">
+      <div style="height:130px;display:flex;align-items:center;justify-content:center;background:white;color:var(--muted);font-size:32px">📄</div>
+      <div class="label"><a href="{file_url}" target="_blank">{html.escape(name)}</a></div>
+    </div>
+    '''
+
+
+def render_run_detail(flow_id: str, run_id: str) -> bytes:
+    run = find_run(flow_id, run_id)
+    if not run:
+        return html_page('No encontrado', '<div class="empty"><h4>Corrida inexistente</h4><a class="button ghost" href="/">Volver</a></div>')
+    steps = load_run_steps(flow_id, run_id)
+    events = load_run_events(flow_id, run_id)
+    context = safe_json_loads(run.get('context_json')) or {}
+    outputs = safe_json_loads(run.get('outputs_json')) or []
+    error = safe_json_loads(run.get('error_json'))
+    step_rows = ''.join(
+        f"<tr><td>{index}</td><td>{html.escape(step['step_id'])}</td><td><span class='path'>{html.escape(step['action'])}</span></td><td>{badge(step['status'])}</td><td>{step['attempt']}</td><td>{round(step.get('duration_seconds') or 0, 3)}s</td><td><pre>{html.escape(str(safe_json_loads(step.get('result_json')) or step.get('error_text') or '')[:600])}</pre></td></tr>"
+        for index, step in enumerate(steps, start=1)
+    ) or '<tr><td colspan="7" class="empty">Sin pasos</td></tr>'
+    output_thumbs = ''.join(_output_thumb(item) for item in outputs if isinstance(item, dict) and item.get('path')) or '<div class="empty"><h4>Sin salidas físicas</h4><div>Este run no generó archivos en disco.</div></div>'
+    event_lines = []
+    for event in events:
+        payload = safe_json_loads(event.get('payload_json'))
+        event_lines.append({'event_time': event.get('event_time'), 'event_type': event.get('event_type'), 'payload': payload})
+    duration = run.get('duration_seconds')
+    duration_text = f'{round(duration, 3)} s' if duration is not None else '—'
+    body = f'''
+    <div class="toolbar"><a class="button ghost" href="/">← Volver al inicio</a><a class="button ghost" href="/flow/{run.get('flow_folder', '')}">Ver flow</a></div>
+    <div class="card">
+      <div class="meta">{badge(run['status'])} <span>{html.escape(run['flow_name'])}</span></div>
+      <h3 style="margin-top:6px">Detalle de corrida</h3>
+      <div class="meta">
+        <span class="path">{html.escape(run['run_id'])}</span>
+        <span>Duración: {duration_text}</span>
+        <span>Creado: {html.escape(str(run.get('created_at') or ''))}</span>
+      </div>
+      {('<div class="card" style="margin-top:12px;background:var(--danger-soft);border-color:#fecaca;color:var(--danger)"><strong>Error:</strong> ' + html.escape(json.dumps(error, ensure_ascii=False)) + '</div>') if error else ''}
+    </div>
+    <div class="two-col" style="margin-top:18px">
+      <div>
+        <div class="card">
+          <h3>Acciones ejecutadas</h3>
+          <table>
+            <thead><tr><th>#</th><th>Paso</th><th>Acción</th><th>Estado</th><th>Intento</th><th>Duración</th><th>Resultado</th></tr></thead>
+            <tbody>{step_rows}</tbody>
+          </table>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h3>Eventos técnicos</h3>
+          <pre>{html.escape(json.dumps(event_lines, ensure_ascii=False, indent=2))}</pre>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h3>Capturas y archivos generados</h3>
+          <div class="thumb-grid">{output_thumbs}</div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h3>Datos finales obtenidos</h3>
+          <pre>{html.escape(json.dumps(context, ensure_ascii=False, indent=2))}</pre>
+        </div>
+      </div>
+    </div>
+    '''
+    return html_page(f'Run {run_id}', body)
 
 
 def render_metrics_dashboard() -> bytes:
@@ -242,129 +585,56 @@ def render_metrics_dashboard() -> bytes:
     rows = ''.join(
         f"<tr><td>{html.escape(item['flow_id'])}</td><td>{item['runs_total']}</td>"
         f"<td>{item['runs_completed']}</td><td>{item['runs_failed']}</td>"
-        f"<td>{html.escape(str(round(item['avg_duration_seconds'] or 0, 3)))}</td>"
+        f"<td>{round(item['avg_duration_seconds'] or 0, 3)}s</td>"
         f"<td>{html.escape(str(item.get('last_run_at') or ''))}</td></tr>"
         for item in flows
-    ) or '<tr><td colspan="6">Sin corridas</td></tr>'
+    ) or '<tr><td colspan="6" class="empty">Sin corridas</td></tr>'
     slowest = ''.join(
-        f"<tr><td>{html.escape(row['action'])}</td><td>{round(row['avg_d'] or 0, 3)}</td><td>{row['c']}</td></tr>"
+        f"<tr><td><span class='path'>{html.escape(row['action'])}</span></td><td>{round(row['avg_d'] or 0, 3)}s</td><td>{row['c']}</td></tr>"
         for row in (overview.get('slowest_actions') or [])
-    ) or '<tr><td colspan="3">Sin datos</td></tr>'
+    ) or '<tr><td colspan="3" class="empty">Sin datos</td></tr>'
     retries = ''.join(
-        f"<tr><td>{html.escape(row['action'])}</td><td>{row['retry_count']}</td></tr>"
+        f"<tr><td><span class='path'>{html.escape(row['action'])}</span></td><td>{row['retry_count']}</td></tr>"
         for row in (overview.get('retries_top_actions') or [])
-    ) or '<tr><td colspan="2">Sin retries</td></tr>'
+    ) or '<tr><td colspan="2" class="empty">Sin retries</td></tr>'
     body = f'''
-    <div class="card">
-      <h2>Resumen</h2>
-      <p><strong>Completadas:</strong> {totals.get('completed', 0)} ·
-         <strong>Falladas:</strong> {totals.get('failed', 0)} ·
-         <strong>En curso:</strong> {totals.get('running', 0)}</p>
-      <p><strong>Duración promedio histórica:</strong> {round(overview.get('average_duration_seconds') or 0, 3)} s</p>
+    <div class="toolbar"><a class="button ghost" href="/">← Volver</a></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:16px">
+      <div class="card"><div class="muted">Completadas</div><h3 style="font-size:32px;margin:4px 0;color:var(--success)">{totals.get('completed',0)}</h3></div>
+      <div class="card"><div class="muted">Falladas</div><h3 style="font-size:32px;margin:4px 0;color:var(--danger)">{totals.get('failed',0)}</h3></div>
+      <div class="card"><div class="muted">En curso</div><h3 style="font-size:32px;margin:4px 0;color:var(--running)">{totals.get('running',0)}</h3></div>
+      <div class="card"><div class="muted">Duración promedio</div><h3 style="font-size:32px;margin:4px 0">{round(overview.get('average_duration_seconds') or 0, 2)}s</h3></div>
     </div>
     <div class="two-col">
       <div class="card">
         <h3>Por flow</h3>
-        <table><thead><tr><th>Flow</th><th>Total</th><th>OK</th><th>Fail</th><th>Avg s</th><th>Última</th></tr></thead><tbody>{rows}</tbody></table>
+        <table><thead><tr><th>Flow</th><th>Total</th><th>OK</th><th>Fail</th><th>Avg</th><th>Última</th></tr></thead><tbody>{rows}</tbody></table>
       </div>
       <div>
         <div class="card">
-          <h3>Acciones más lentas (avg)</h3>
-          <table><thead><tr><th>Acción</th><th>Avg s</th><th>Muestras</th></tr></thead><tbody>{slowest}</tbody></table>
+          <h3>Acciones más lentas</h3>
+          <table><thead><tr><th>Acción</th><th>Avg</th><th>Muestras</th></tr></thead><tbody>{slowest}</tbody></table>
         </div>
         <div class="card" style="margin-top:16px">
           <h3>Acciones con más reintentos</h3>
           <table><thead><tr><th>Acción</th><th>Retries</th></tr></thead><tbody>{retries}</tbody></table>
         </div>
-        <div class="card" style="margin-top:16px">
-          <h3>Endpoints</h3>
-          <ul>
-            <li><a href="/api/metrics">/api/metrics</a> (JSON)</li>
-            <li><a href="/metrics">/metrics</a> (Prometheus)</li>
-            <li><a href="/api/flows">/api/flows</a></li>
-            <li><a href="/api/runs">/api/runs</a></li>
-            <li><a href="/healthz">/healthz</a></li>
-          </ul>
-        </div>
       </div>
     </div>
     '''
-    return html_page('Métricas operativas', body)
-
-
-def render_run_detail(flow_id: str, run_id: str) -> bytes:
-    run = find_run(flow_id, run_id)
-    if not run:
-        return html_page('No encontrado', '<p>Corrida inexistente.</p>')
-    steps = load_run_steps(flow_id, run_id)
-    events = load_run_events(flow_id, run_id)
-    context = safe_json_loads(run.get('context_json')) or {}
-    outputs = safe_json_loads(run.get('outputs_json')) or []
-    error = safe_json_loads(run.get('error_json'))
-    step_rows = ''.join(
-        f"<tr><td>{index}</td><td>{html.escape(step['step_id'])}</td><td>{html.escape(step['action'])}</td><td>{badge(step['status'])}</td><td>{html.escape(str(step['attempt']))}</td><td><pre>{html.escape(str(safe_json_loads(step.get('result_json')) or step.get('error_text') or ''))}</pre></td></tr>"
-        for index, step in enumerate(steps, start=1)
-    ) or '<tr><td colspan="6">Sin pasos</td></tr>'
-    output_items = ''.join(
-        f"<li><a href='/file?path={html.escape(item.get('path', ''))}'>{html.escape(item.get('name', item.get('path', 'archivo')))}</a> <span class='muted path'>{html.escape(item.get('path', ''))}</span></li>"
-        for item in outputs if isinstance(item, dict) and item.get('path')
-    ) or '<li>No se detectaron salidas físicas.</li>'
-    event_lines = []
-    for event in events:
-        payload = safe_json_loads(event.get('payload_json'))
-        event_lines.append({'event_time': event.get('event_time'), 'event_type': event.get('event_type'), 'payload': payload})
-    body = f'''
-    <div class="card">
-      <div>{badge(run['status'])}</div>
-      <h2>Detalle de corrida</h2>
-      <p><strong>Flujo:</strong> {html.escape(run['flow_name'])} <span class="path">({html.escape(run['flow_id'])})</span></p>
-      <p><strong>Run ID:</strong> <span class="path">{html.escape(run['run_id'])}</span></p>
-      <p><strong>Duración:</strong> {html.escape(str(run.get('duration_seconds') or 'n/a'))} s</p>
-      <p><strong>Error final:</strong> {html.escape(json.dumps(error, ensure_ascii=False) if error else 'sin error')}</p>
-    </div>
-    <div class="two-col">
-      <div>
-        <div class="card">
-          <h3>Acciones ejecutadas</h3>
-          <table><thead><tr><th>#</th><th>Paso</th><th>Acción</th><th>Estado</th><th>Intento</th><th>Resultado</th></tr></thead><tbody>{step_rows}</tbody></table>
-        </div>
-        <div class="card" style="margin-top:16px">
-          <h3>Eventos técnicos</h3>
-          <pre>{html.escape(json.dumps(event_lines, ensure_ascii=False, indent=2))}</pre>
-        </div>
-      </div>
-      <div>
-        <div class="card">
-          <h3>Datos finales obtenidos</h3>
-          <pre>{html.escape(json.dumps(context, ensure_ascii=False, indent=2))}</pre>
-        </div>
-        <div class="card" style="margin-top:16px">
-          <h3>Salidas / despliegues / archivos</h3>
-          <ul>{output_items}</ul>
-        </div>
-      </div>
-    </div>
-    '''
-    return html_page(f'Detalle run: {run_id}', body)
+    return html_page('Métricas · Flujo Autónomo', body)
 
 
 class AppHandler(BaseHTTPRequestHandler):
+    def log_message(self, format: str, *args: Any) -> None:  # silencia logs ruidosos
+        return
+
     def _send_html(self, content: bytes, status: int = HTTPStatus.OK) -> None:
         self.send_response(status)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Content-Length', str(len(content)))
         self.end_headers()
         self.wfile.write(content)
-
-    def _redirect(self, location: str) -> None:
-        self.send_response(HTTPStatus.SEE_OTHER)
-        self.send_header('Location', location)
-        self.end_headers()
-
-    def _read_form(self):
-        length = int(self.headers.get('Content-Length', '0'))
-        raw = self.rfile.read(length).decode('utf-8') if length else ''
-        return parse_qs(raw)
 
     def _send_json(self, payload: Any, status: int = HTTPStatus.OK) -> None:
         body = json.dumps(payload, ensure_ascii=False, indent=2).encode('utf-8')
@@ -381,6 +651,23 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _redirect(self, location: str) -> None:
+        self.send_response(HTTPStatus.SEE_OTHER)
+        self.send_header('Location', location)
+        self.end_headers()
+
+    def _read_form(self):
+        length = int(self.headers.get('Content-Length', '0'))
+        raw = self.rfile.read(length).decode('utf-8') if length else ''
+        return parse_qs(raw)
+
+    def _check_webhook_token(self) -> bool:
+        expected = get_secret('FLUJO_WEBHOOK_TOKEN')
+        if not expected:
+            return False
+        provided = self.headers.get('X-Flujo-Token', '')
+        return bool(provided) and provided == expected
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -420,7 +707,7 @@ class AppHandler(BaseHTTPRequestHandler):
             rel = unquote(params.get('path', [''])[0])
             target = (ROOT / rel).resolve() if not Path(rel).is_absolute() else Path(rel)
             if not str(target).startswith(str(ROOT.resolve())) or not target.exists() or not target.is_file():
-                return self._send_html(html_page('Archivo no encontrado', '<p>Ruta inválida.</p>'), status=404)
+                return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
             mime, _ = mimetypes.guess_type(str(target))
             content = target.read_bytes()
             self.send_response(HTTPStatus.OK)
@@ -429,22 +716,26 @@ class AppHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(content)
             return
-        return self._send_html(html_page('No encontrado', '<p>Ruta inexistente.</p>'), status=404)
-
-    def _check_webhook_token(self) -> bool:
-        """Compara el header X-Flujo-Token con el secreto FLUJO_WEBHOOK_TOKEN.
-
-        Si el secreto no está definido, el endpoint queda deshabilitado por defecto.
-        """
-        expected = get_secret('FLUJO_WEBHOOK_TOKEN')
-        if not expected:
-            return False
-        provided = self.headers.get('X-Flujo-Token', '')
-        return bool(provided) and provided == expected
+        return self._send_html(html_page('No encontrado', '<div class="empty"><h4>Ruta inexistente</h4><a class="button ghost" href="/">Volver</a></div>'), status=404)
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+        if path.startswith('/api/run/'):
+            folder = path[len('/api/run/'):].strip('/')
+            flow = get_flow_by_folder(folder)
+            if not flow:
+                return self._send_json({'ok': False, 'error': 'flow no encontrado'}, status=404)
+            try:
+                state = Orchestrator(Path(flow['flow_path'])).run()
+                return self._send_json({
+                    'ok': True,
+                    'run_id': state['run_id'],
+                    'status': state['status'],
+                    'flow_id': state['flow_id'],
+                })
+            except FlowExecutionError as exc:
+                return self._send_json({'ok': False, 'error': str(exc)}, status=500)
         if path.startswith('/api/hook/'):
             folder = path[len('/api/hook/'):].strip('/')
             if not folder:
@@ -472,13 +763,12 @@ class AppHandler(BaseHTTPRequestHandler):
             folder = params.get('flow', [''])[0]
             flow = get_flow_by_folder(folder)
             if not flow:
-                return self._send_html(html_page('Error', '<p>Flujo no encontrado.</p>'), status=404)
+                return self._send_html(html_page('Error', '<div class="empty"><h4>Flujo no encontrado</h4></div>'), status=404)
             try:
-                orchestrator = Orchestrator(Path(flow['flow_path']))
-                state = orchestrator.run()
+                state = Orchestrator(Path(flow['flow_path'])).run()
                 return self._redirect(f"/run/{state['flow_id']}/{state['run_id']}")
             except FlowExecutionError as exc:
-                return self._send_html(html_page('Ejecución con error', f'<p>{html.escape(str(exc))}</p>'), status=500)
+                return self._send_html(html_page('Ejecución con error', f'<div class="card" style="background:var(--danger-soft);color:var(--danger)">{html.escape(str(exc))}</div>'), status=500)
         if path.startswith('/flow/') and path.endswith('/config'):
             parts = [p for p in path.split('/') if p]
             folder = parts[1]
@@ -507,13 +797,13 @@ class AppHandler(BaseHTTPRequestHandler):
                     interval_seconds=interval_seconds,
                     cron_expression=cron_expression,
                 )
-                return self._send_html(render_flow_config(folder, message='Scheduler actualizado.'))
-            except Exception as exc:  # incluye CronExpressionError
+                return self._redirect('/#schedule')
+            except Exception as exc:
                 return self._send_html(
                     render_flow_config(folder, message=f'Error en scheduler: {exc}'),
                     status=400,
                 )
-        return self._send_html(html_page('No encontrado', '<p>Ruta POST inexistente.</p>'), status=404)
+        return self._send_html(html_page('No encontrado', '<div class="empty"><h4>Ruta POST inexistente</h4></div>'), status=404)
 
 
 def run_server(host: str = '127.0.0.1', port: int = 8787) -> None:
