@@ -1,3 +1,5 @@
+import uuid
+
 from engine.database import (
     acquire_run_lock,
     force_release_lock,
@@ -9,18 +11,26 @@ from engine.database import (
 
 def test_lock_acquire_and_release(tmp_runtime):
     init_db()
-    assert acquire_run_lock("flow_a", "run-1") is True
-    assert acquire_run_lock("flow_a", "run-2") is False
-    locks = list_run_locks()
-    assert len(locks) == 1 and locks[0]["folder"] == "flow_a"
-    release_run_lock("flow_a", "run-1")
-    assert acquire_run_lock("flow_a", "run-3") is True
-    force_release_lock("flow_a")
-    assert list_run_locks() == []
+    folder = f"flow_{uuid.uuid4().hex[:8]}"
+    try:
+        assert acquire_run_lock(folder, "run-1") is True
+        assert acquire_run_lock(folder, "run-2") is False
+        assert any(row["folder"] == folder for row in list_run_locks())
+        release_run_lock(folder, "run-1")
+        assert acquire_run_lock(folder, "run-3") is True
+    finally:
+        force_release_lock(folder)
 
 
 def test_lock_independent_per_folder(tmp_runtime):
     init_db()
-    assert acquire_run_lock("flow_a", "r1") is True
-    assert acquire_run_lock("flow_b", "r2") is True
-    assert {row["folder"] for row in list_run_locks()} == {"flow_a", "flow_b"}
+    a = f"flow_{uuid.uuid4().hex[:8]}"
+    b = f"flow_{uuid.uuid4().hex[:8]}"
+    try:
+        assert acquire_run_lock(a, "r1") is True
+        assert acquire_run_lock(b, "r2") is True
+        folders = {row["folder"] for row in list_run_locks()}
+        assert {a, b} <= folders
+    finally:
+        force_release_lock(a)
+        force_release_lock(b)

@@ -19,6 +19,7 @@ from engine.catalog import (
 )
 from engine.paths import root_dir
 from engine.database import get_flow_config, get_schedule, init_db, set_flow_config, set_schedule, sync_flows
+from engine.metrics import by_flow as metrics_by_flow, overview as metrics_overview, prometheus_text
 from engine.orchestrator import FlowExecutionError, Orchestrator
 from engine.scheduler import SchedulerService
 
@@ -121,6 +122,10 @@ def render_home() -> bytes:
     <div class="card" style="margin-bottom:18px">
       <p><strong>Primera versión operativa:</strong> índice principal + ejecución real + histórico SQLite + scheduler + configuración por flujo + branching condicional + OCR, visión y modo híbrido.</p>
       <p class="muted">Cada caso puede ejecutarse manualmente o quedar programado. El detalle de cada corrida guarda acciones, datos obtenidos, eventos y archivos generados.</p>
+      <div class="buttons">
+        <a class="button secondary" href="/metrics/dashboard">Ver métricas operativas</a>
+        <a class="button secondary" href="/api/metrics">API de métricas</a>
+      </div>
     </div>
     <div class="grid">{''.join(cards)}</div>
     '''
@@ -229,6 +234,63 @@ def render_flow_history(folder: str) -> bytes:
     return html_page(f'Histórico: {flow["name"]}', body)
 
 
+def render_metrics_dashboard() -> bytes:
+    overview = metrics_overview()
+    flows = metrics_by_flow()
+    totals = overview.get('totals_by_status') or {}
+    rows = ''.join(
+        f"<tr><td>{html.escape(item['flow_id'])}</td><td>{item['runs_total']}</td>"
+        f"<td>{item['runs_completed']}</td><td>{item['runs_failed']}</td>"
+        f"<td>{html.escape(str(round(item['avg_duration_seconds'] or 0, 3)))}</td>"
+        f"<td>{html.escape(str(item.get('last_run_at') or ''))}</td></tr>"
+        for item in flows
+    ) or '<tr><td colspan="6">Sin corridas</td></tr>'
+    slowest = ''.join(
+        f"<tr><td>{html.escape(row['action'])}</td><td>{round(row['avg_d'] or 0, 3)}</td><td>{row['c']}</td></tr>"
+        for row in (overview.get('slowest_actions') or [])
+    ) or '<tr><td colspan="3">Sin datos</td></tr>'
+    retries = ''.join(
+        f"<tr><td>{html.escape(row['action'])}</td><td>{row['retry_count']}</td></tr>"
+        for row in (overview.get('retries_top_actions') or [])
+    ) or '<tr><td colspan="2">Sin retries</td></tr>'
+    body = f'''
+    <div class="card">
+      <h2>Resumen</h2>
+      <p><strong>Completadas:</strong> {totals.get('completed', 0)} ·
+         <strong>Falladas:</strong> {totals.get('failed', 0)} ·
+         <strong>En curso:</strong> {totals.get('running', 0)}</p>
+      <p><strong>Duración promedio histórica:</strong> {round(overview.get('average_duration_seconds') or 0, 3)} s</p>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <h3>Por flow</h3>
+        <table><thead><tr><th>Flow</th><th>Total</th><th>OK</th><th>Fail</th><th>Avg s</th><th>Última</th></tr></thead><tbody>{rows}</tbody></table>
+      </div>
+      <div>
+        <div class="card">
+          <h3>Acciones más lentas (avg)</h3>
+          <table><thead><tr><th>Acción</th><th>Avg s</th><th>Muestras</th></tr></thead><tbody>{slowest}</tbody></table>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h3>Acciones con más reintentos</h3>
+          <table><thead><tr><th>Acción</th><th>Retries</th></tr></thead><tbody>{retries}</tbody></table>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h3>Endpoints</h3>
+          <ul>
+            <li><a href="/api/metrics">/api/metrics</a> (JSON)</li>
+            <li><a href="/metrics">/metrics</a> (Prometheus)</li>
+            <li><a href="/api/flows">/api/flows</a></li>
+            <li><a href="/api/runs">/api/runs</a></li>
+            <li><a href="/healthz">/healthz</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    '''
+    return html_page('Métricas operativas', body)
+
+
 def render_run_detail(flow_id: str, run_id: str) -> bytes:
     run = find_run(flow_id, run_id)
     if not run:
@@ -303,11 +365,42 @@ class AppHandler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length).decode('utf-8') if length else ''
         return parse_qs(raw)
 
+    def _send_json(self, payload: Any, status: int = HTTPStatus.OK) -> None:
+        body = json.dumps(payload, ensure_ascii=False, indent=2).encode('utf-8')
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_text(self, text: str, status: int = HTTPStatus.OK, content_type: str = 'text/plain; charset=utf-8') -> None:
+        body = text.encode('utf-8')
+        self.send_response(status)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
         if path == '/':
             return self._send_html(render_home())
+        if path == '/healthz':
+            return self._send_json({'status': 'ok'})
+        if path == '/metrics':
+            return self._send_text(prometheus_text(), content_type='text/plain; version=0.0.4; charset=utf-8')
+        if path == '/api/metrics':
+            return self._send_json({'overview': metrics_overview(), 'by_flow': metrics_by_flow()})
+        if path == '/metrics/dashboard':
+            return self._send_html(render_metrics_dashboard())
+        if path == '/api/flows':
+            return self._send_json(list_flows())
+        if path == '/api/runs':
+            params = parse_qs(parsed.query)
+            flow_id = params.get('flow_id', [None])[0]
+            limit = int(params.get('limit', ['50'])[0])
+            return self._send_json(list_runs(flow_id=flow_id, limit=limit))
         if path.startswith('/flow/'):
             parts = [p for p in path.split('/') if p]
             folder = parts[1] if len(parts) > 1 else ''
