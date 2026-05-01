@@ -1,45 +1,60 @@
 # Flujo Autónomo
 
-> Orquestador local de procesos para PC: flows declarativos, ejecución trazable, scheduler, panel operativo y automatización visual con OCR/visión.
+> Orquestador local de procesos para PC: flows declarativos, ejecución trazable, scheduler con cron, panel operativo, métricas y automatización visual con OCR/visión.
 
-![Python](https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-persistencia-003B57?logo=sqlite&logoColor=white)
 ![Local First](https://img.shields.io/badge/local--first-sí-2D7A66)
-![Estado](https://img.shields.io/badge/estado-primera%20versión%20operativa-blue)
-![Validación](https://img.shields.io/badge/validación-manifests%20%2B%20smoke-informational)
+![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)
+![uv](https://img.shields.io/badge/packaging-uv%20%7C%20pip-DE5FE9)
+![Tests](https://img.shields.io/badge/tests-77%20pytest-3DA639)
+![Estado](https://img.shields.io/badge/estado-versión%200.2.0-blue)
 
-Flujo Autónomo es un sistema local para modelar y ejecutar procesos operativos sobre un PC. Cada proceso vive como un caso declarativo en `flows/`, se ejecuta por CLI o panel web, persiste historial en SQLite y deja evidencia en `state/`, `logs/` y `output/`.
+Flujo Autónomo es un sistema local para modelar y ejecutar procesos operativos sobre un PC. Cada proceso vive como un caso declarativo en `flows/`, se ejecuta por CLI, panel web o webhook HTTP, persiste historial en SQLite y deja evidencia en `state/`, `logs/` y `output/`.
 
-El objetivo no es vender una plataforma abstracta: el repositorio muestra un producto inicial, ejecutable y auditable, con casos reales de filesystem, sistema, navegador, pantalla, OCR y UI automation.
+El objetivo no es vender una plataforma abstracta: el repositorio muestra un producto operativo con sandbox por flow, scheduler con cron, métricas y casos reales de filesystem, sistema, navegador, pantalla, OCR y UI automation.
 
 ## Resumen Ejecutivo
 
 - Motor declarativo basado en `manifest.json`, con `when`, `transitions`, retries y límite de pasos por corrida.
-- Panel local para ejecutar casos, editar configuración, revisar historial y activar scheduler.
+- **Sandbox por flow:** allowlist de acciones, secretos requeridos, prefijos de ruta permitidos y máximo runtime.
+- **Scheduler persistente** con expresiones cron de 5 campos y lock SQLite contra ejecuciones paralelas del mismo flow.
+- **Panel local + API JSON + métricas Prometheus** y webhook de entrada autenticado por token.
 - Persistencia operativa con SQLite, snapshots JSON y eventos JSONL.
-- Acciones desacopladas para filesystem, sistema, pantalla, UI, HTTP, reglas y visión.
-- Flujo visual avanzado con OCR, visión multimodal o modo híbrido.
-- Validación liviana de manifests sin dependencias externas.
-- Smoke test integral para validar motor, base de datos, scheduler y flows principales.
+- Acciones desacopladas para filesystem, sistema, pantalla, UI, HTTP, reglas, visión y notificaciones.
+- **Plugins de terceros** vía entry-points `flujo.actions` (importlib.metadata).
+- Validación con **JSON Schema** y suite de **77 tests pytest**.
+- CI en GitHub Actions con `uv` (matriz Linux/Windows × Python 3.10–3.12) y job de smoke.
+- Empaquetado moderno: `pyproject.toml` con extras `dev`, `schema` y entry-points para CLI.
 
 ## Qué Demuestra
 
 | Área | Evidencia concreta |
 | --- | --- |
-| Orquestación | `engine/orchestrator.py` ejecuta pasos, condiciones, transiciones, retries y persistencia incremental |
-| Operación local | `app/server.py` entrega panel HTML sin framework pesado |
-| Casos ejecutables | `flows/` contiene 11 procesos reales con manifiestos y contexto |
-| Trazabilidad | cada corrida escribe SQLite, snapshot JSON, eventos JSONL y salidas detectadas |
-| Automatización visual | OCR, bounding boxes, proveedor multimodal y UI dry-run |
-| Mantenibilidad | registro de acciones perezoso y validador de manifests |
+| Orquestación | [engine/orchestrator.py](engine/orchestrator.py) ejecuta pasos, condiciones, transiciones, retries y persistencia incremental |
+| Sandbox | [engine/sandbox.py](engine/sandbox.py) aplica allowlist, secretos y rutas permitidas antes y durante la corrida |
+| Scheduler | [engine/scheduler.py](engine/scheduler.py) + [engine/cron.py](engine/cron.py) con lock persistente |
+| Operación | [app/server.py](app/server.py) entrega panel + API JSON + métricas + webhook |
+| Métricas | [engine/metrics.py](engine/metrics.py) expone `/api/metrics` y `/metrics` (Prometheus) |
+| Casos ejecutables | [flows/](flows) contiene 11 procesos reales |
+| Trazabilidad | cada corrida escribe SQLite, snapshot JSON, eventos JSONL y outputs |
+| Mantenibilidad | JSON Schema + pytest + CI + ruff |
 
 ## Inicio Rápido
 
+### Con uv (recomendado)
+
+```bash
+uv sync --extra dev --extra schema
+uv run python -m app.server
+```
+
+### Con pip
+
 ```bash
 python -m venv .venv
-source .venv/bin/activate   # Linux/Mac
-# o .venv\Scripts\activate  # Windows
-pip install -r requirements.txt
+source .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install -e ".[dev,schema]"
 python -m app.server
 ```
 
@@ -49,28 +64,31 @@ Panel local:
 http://127.0.0.1:8787
 ```
 
-CLI:
+CLI tras instalar el paquete:
+
+```bash
+flujo list
+flujo run flows/05_system_healthcheck
+flujo scheduler --interval 2
+```
+
+O sin instalar:
 
 ```bash
 python -m engine.runner list
 python -m engine.runner run flows/05_system_healthcheck
-python -m engine.runner scheduler --interval 2
 ```
 
-`list` no inicializa SQLite ni carga dependencias opcionales de acciones. Sirve para inspeccionar flows incluso antes de instalar todo el entorno.
+`list` no inicializa SQLite ni carga dependencias opcionales. Sirve para inspeccionar flows incluso antes de instalar todo el entorno.
 
 ## Validación
 
-Valida manifests, acciones registradas y transiciones sin dependencias externas:
+Tres niveles, de barato a caro:
 
 ```bash
-python scripts/validate_project.py
-```
-
-Prueba integral con SQLite, scheduler y flows reales:
-
-```bash
-python scripts/smoke_test.py
+python scripts/validate_project.py   # JSON Schema + acciones + transitions
+pytest                                # 77 tests unitarios + integración
+python scripts/smoke_test.py          # corrida real de flows representativos
 ```
 
 ## Catálogo De Casos
@@ -91,21 +109,27 @@ python scripts/smoke_test.py
 
 ## Arquitectura En Una Frase
 
-Un `manifest.json` declara pasos; el loader los convierte en definiciones; el orquestador resuelve condiciones, templates y transiciones; las acciones se cargan bajo demanda; cada corrida persiste estado, eventos y salidas.
+Un `manifest.json` declara pasos y política de sandbox; el loader los convierte en definiciones; el orquestador resuelve condiciones, templates y transiciones aplicando la política; las acciones se cargan bajo demanda (built-in o entry-points externos); cada corrida persiste estado, eventos, salidas y métricas.
 
 ```mermaid
 flowchart LR
     Flow["flows/*/manifest.json"] --> Loader["FlowLoader"]
     Loader --> Orchestrator["Orchestrator"]
+    Schema["schemas/manifest.schema.json"] --> Validator["validate_project.py"]
     Config["configs/*.json"] --> Orchestrator
+    Secrets["secrets/secrets.json + env"] --> Orchestrator
+    Sandbox["SandboxPolicy"] --> Orchestrator
     Orchestrator --> Registry["LazyActionRegistry"]
-    Registry --> Actions["actions/*"]
+    Registry --> Builtin["actions/*"]
+    Registry --> External["entry_points: flujo.actions"]
     Orchestrator --> DB["db/runs.db"]
     Orchestrator --> State["state/*.json"]
     Orchestrator --> Logs["logs/*.jsonl"]
     Orchestrator --> Output["output/*"]
     Panel["app/server.py"] --> Orchestrator
-    Scheduler["SchedulerService"] --> Orchestrator
+    Panel --> Metrics["engine/metrics.py"]
+    Scheduler["SchedulerService + cron"] --> Orchestrator
+    Webhook["POST /api/hook/<folder>"] --> Orchestrator
 ```
 
 ## Documentación Del Repositorio
@@ -114,27 +138,34 @@ flowchart LR
 | --- | --- |
 | [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) | diseño técnico y flujo de ejecución |
 | [docs/FAMILIAS_Y_CASOS.md](docs/FAMILIAS_Y_CASOS.md) | taxonomía y catálogo de flows |
-| [docs/OPERACION.md](docs/OPERACION.md) | guía de uso diario por CLI, panel y scheduler |
+| [docs/OPERACION.md](docs/OPERACION.md) | guía de uso diario por CLI, panel, scheduler y webhook |
 | [docs/CREAR_FLUJOS.md](docs/CREAR_FLUJOS.md) | contrato para crear nuevos manifests |
-| [docs/SEGURIDAD.md](docs/SEGURIDAD.md) | límites, riesgos y controles operativos |
-| [docs/VALIDACION.md](docs/VALIDACION.md) | checks locales y criterios de aceptación |
+| [docs/SEGURIDAD.md](docs/SEGURIDAD.md) | sandbox por flow, secretos y modelo de confianza |
+| [docs/VALIDACION.md](docs/VALIDACION.md) | JSON Schema, pytest, CI y criterios de aceptación |
+| [docs/METRICAS.md](docs/METRICAS.md) | endpoints, dashboard y formato Prometheus |
+| [docs/INTEGRACIONES.md](docs/INTEGRACIONES.md) | webhook de entrada y notificaciones de salida |
+| [docs/EXTENSION.md](docs/EXTENSION.md) | publicar acciones de terceros vía entry-points |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | fallas comunes y diagnóstico |
 | [docs/MODOS_DE_ANALISIS_VISUAL.md](docs/MODOS_DE_ANALISIS_VISUAL.md) | OCR, visión e híbrido |
 
 ## Estructura
 
 ```text
-/app        Panel local
-/actions    Acciones ejecutables por los flows
-/engine     Motor, loader, scheduler, templates y persistencia
-/plugins    Analizadores extensibles
-/flows      Casos ejecutables
-/configs    Configuración por flow
-/db         Base SQLite local
-/logs       Eventos técnicos JSONL
-/state      Snapshots completos de corrida
-/output     Reportes y capturas generadas
-/docs       Documentación técnica y operativa
+/app          Panel local + API JSON
+/actions      Acciones ejecutables por los flows
+/engine       Motor: loader, orquestador, sandbox, scheduler, cron, métricas, secretos
+/plugins      Analizadores extensibles
+/flows        Casos ejecutables
+/configs      Configuración por flow (no secretos)
+/secrets      Bóveda local (ignorada por git)
+/schemas      JSON Schema del manifest
+/db           Base SQLite local
+/logs         Eventos técnicos JSONL
+/state        Snapshots completos de corrida
+/output       Reportes y capturas generadas
+/tests        Suite pytest
+/docs         Documentación técnica y operativa
+/.github      Workflows de CI
 ```
 
 ## Modos Visuales
@@ -153,15 +184,29 @@ Para pruebas sin GUI real:
 
 ## Seguridad Operativa
 
-Los flows pueden leer/escribir archivos, abrir URLs, capturar pantalla, controlar UI y lanzar procesos. Trátalos como automatizaciones locales confiables: revisa cualquier manifest recibido de terceros antes de ejecutarlo.
+Los flows pueden leer/escribir archivos, abrir URLs, capturar pantalla, controlar UI y lanzar procesos. La política se declara en el propio manifest:
 
-Controles actuales:
+```json
+{
+  "id": "auditoria_segura",
+  "name": "Auditoría",
+  "allowed_actions": ["filesystem.list_directory", "filesystem.write_json"],
+  "allowed_paths": ["data/auditorias", "output/reports"],
+  "required_secrets": ["AUDIT_API_KEY"],
+  "max_runtime_seconds": 60,
+  "steps": [...]
+}
+```
 
-- `ui.launch_process` usa `shell=false` por defecto, valida comandos vacíos y soporta `dry_run`.
-- Las salidas generadas quedan fuera de Git por `.gitignore`.
-- `scripts/validate_project.py` revisa acciones registradas y transiciones antes de ejecutar.
+El orquestador rechaza acciones fuera de `allowed_actions`, valida que los `params` con rutas estén bajo `allowed_paths`, exige los `required_secrets` antes de empezar y aborta si la corrida supera `max_runtime_seconds`. Detalle en [docs/SEGURIDAD.md](docs/SEGURIDAD.md).
+
+Otros controles:
+
+- `ui.launch_process` usa `shell=false` por defecto y soporta `dry_run`.
+- Salidas generadas y `secrets/` quedan fuera de Git por `.gitignore`.
 - El panel se publica por defecto en `127.0.0.1`.
+- El webhook `/api/hook/<folder>` exige el token `FLUJO_WEBHOOK_TOKEN`; si no está definido, el endpoint queda deshabilitado.
 
 ## Alcance Honesto
 
-Este repositorio representa la primera versión operativa del sistema. Ya ejecuta flows reales y deja trazabilidad local, pero todavía no incluye RBAC, multiusuario, aislamiento fuerte de acciones, CI completo ni empaquetado instalable. La prioridad actual es mantener una base clara, reproducible y fácil de extender sin ocultar sus límites.
+Esta versión 0.2.0 añade sandbox, cron persistente, métricas, JSON Schema, suite de tests, CI y entry-points. Todavía no incluye RBAC multiusuario, aislamiento OS-level por proceso, ni empaquetado en instalador binario. La prioridad sigue siendo mantener una base clara, reproducible y fácil de extender sin ocultar sus límites.
