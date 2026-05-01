@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import mimetypes
+import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -17,7 +18,16 @@ from engine.catalog import (
     load_run_events,
     load_run_steps,
 )
-from engine.database import get_flow_config, get_schedule, init_db, set_flow_config, set_schedule, sync_flows
+from engine.database import (
+    get_flow_config,
+    get_run,
+    get_schedule,
+    get_steps,
+    init_db,
+    set_flow_config,
+    set_schedule,
+    sync_flows,
+)
 from engine.metrics import by_flow as metrics_by_flow
 from engine.metrics import overview as metrics_overview
 from engine.metrics import prometheus_text
@@ -31,6 +41,77 @@ SCHEDULER = SchedulerService(loop_sleep_seconds=2.0)
 SCHEDULER.start_in_background()
 init_db()
 sync_flows(list_flows())
+
+
+def _run_status_payload(run_id: str) -> dict[str, Any]:
+    """Estado actual de una corrida con detalle paso a paso.
+
+    Combina la fila de ``runs`` con los registros de ``steps`` y la lista
+    completa de pasos del manifest para que el panel pueda mostrar:
+    - pasos terminados (success/failed/skipped) con su duración real;
+    - el paso "running" actual (primero del manifest sin registro en steps,
+      cuando el run sigue activo);
+    - los siguientes pasos como "pending".
+    """
+    run = get_run(run_id)
+    if not run:
+        return {'ok': False, 'error': 'run no encontrado'}
+    steps_records = get_steps(run_id)
+    flow = get_flow_by_folder(run['flow_folder'])
+    manifest_steps = (flow.get('steps') or []) if flow else []
+    by_step_id: dict[str, dict[str, Any]] = {r['step_id']: r for r in steps_records}
+    is_running = run['status'] == 'running'
+    rendered: list[dict[str, Any]] = []
+    found_running = False
+    for ms in manifest_steps:
+        sid = ms.get('id')
+        if not sid:
+            continue
+        record = by_step_id.get(sid)
+        if record:
+            rendered.append({
+                'step_id': sid,
+                'action': record.get('action') or ms.get('action', ''),
+                'status': record.get('status'),
+                'attempt': record.get('attempt'),
+                'duration_seconds': record.get('duration_seconds'),
+            })
+        elif is_running and not found_running:
+            rendered.append({
+                'step_id': sid,
+                'action': ms.get('action', ''),
+                'status': 'running',
+                'attempt': None,
+                'duration_seconds': None,
+            })
+            found_running = True
+        else:
+            rendered.append({
+                'step_id': sid,
+                'action': ms.get('action', ''),
+                'status': 'pending',
+                'attempt': None,
+                'duration_seconds': None,
+            })
+    error_payload = None
+    if run.get('error_json'):
+        try:
+            error_payload = json.loads(run['error_json'])
+        except json.JSONDecodeError:
+            error_payload = run['error_json']
+    return {
+        'ok': True,
+        'run_id': run_id,
+        'flow_id': run.get('flow_id'),
+        'flow_folder': run.get('flow_folder'),
+        'flow_name': run.get('flow_name'),
+        'status': run.get('status'),
+        'steps': rendered,
+        'duration_seconds': run.get('duration_seconds'),
+        'started_at': run.get('started_at'),
+        'finished_at': run.get('finished_at'),
+        'error': error_payload,
+    }
 
 
 PAGE_CSS = '''
@@ -161,7 +242,31 @@ label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); 
 .spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.live-status { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 16px; }
+.live-status { font-size: 12px; color: var(--muted); margin-top: 10px; min-height: 16px; }
+
+.run-progress { background: #f8fafc; border-radius: 12px; padding: 12px; border: 1px solid var(--border); }
+.run-progress-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
+.run-progress-header a { font-size: 12px; }
+.step-list { display: flex; flex-direction: column; gap: 4px; }
+.step-row { display: grid; grid-template-columns: 22px 1fr auto auto auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 8px; background: white; border: 1px solid var(--border); font-size: 12px; }
+.step-row .step-icon { text-align: center; font-weight: 600; font-size: 14px; color: var(--muted); }
+.step-row .step-name { font-weight: 600; color: var(--text); }
+.step-row .step-action { font-size: 11px; }
+.step-row .step-status { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; background: #f1f5f9; }
+.step-row.step-success { background: #f0fdf4; border-color: #bbf7d0; }
+.step-row.step-success .step-icon { color: var(--success); }
+.step-row.step-success .step-status { background: var(--success-soft); color: var(--success); }
+.step-row.step-failed { background: #fef2f2; border-color: #fecaca; }
+.step-row.step-failed .step-icon { color: var(--danger); }
+.step-row.step-failed .step-status { background: var(--danger-soft); color: var(--danger); }
+.step-row.step-running { background: #eff6ff; border-color: #bfdbfe; animation: pulse 1.4s ease-in-out infinite; }
+.step-row.step-running .step-icon { color: var(--running); }
+.step-row.step-running .step-status { background: var(--running-soft); color: var(--running); }
+.step-row.step-skipped { background: #f8fafc; opacity: 0.7; }
+.step-row.step-skipped .step-icon { color: var(--muted); }
+.step-row.step-pending { opacity: 0.55; }
+.step-error { margin-top: 8px; padding: 8px 10px; background: var(--danger-soft); color: var(--danger); border-radius: 8px; font-size: 12px; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, .25); } 50% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); } }
 '''
 
 
@@ -177,27 +282,85 @@ function showToast(msg, kind) {
   el.className = 'toast show ' + (kind || '');
   setTimeout(() => el.classList.remove('show'), 3500);
 }
+function statusIcon(s) {
+  if (s === 'success' || s === 'completed') return '✓';
+  if (s === 'failed') return '✕';
+  if (s === 'skipped') return '⏭';
+  if (s === 'running') return '⏳';
+  return '○';
+}
+function renderProgress(payload) {
+  const steps = payload.steps || [];
+  const lines = steps.map(s => {
+    const icon = statusIcon(s.status);
+    const dur = s.duration_seconds != null ? ` <span class="muted">${Number(s.duration_seconds).toFixed(2)}s</span>` : '';
+    return `<div class="step-row step-${s.status}">
+      <span class="step-icon">${icon}</span>
+      <span class="step-name">${s.step_id}</span>
+      <span class="step-action path">${s.action}</span>
+      <span class="step-status">${s.status}</span>
+      ${dur}
+    </div>`;
+  }).join('');
+  return `<div class="step-list">${lines}</div>`;
+}
+async function pollStatus(runId, card, btn, flowId) {
+  const status = card.querySelector('.live-status');
+  let stop = false;
+  let consecutiveErrors = 0;
+  while (!stop) {
+    try {
+      const res = await fetch('/api/runs/' + encodeURIComponent(runId) + '/status');
+      const data = await res.json();
+      if (!data.ok) { consecutiveErrors++; if (consecutiveErrors > 5) break; await new Promise(r => setTimeout(r, 700)); continue; }
+      consecutiveErrors = 0;
+      const isTerminal = data.status === 'completed' || data.status === 'failed';
+      const headerCls = data.status === 'completed' ? 'completed' : (data.status === 'failed' ? 'failed' : 'running');
+      const detailLink = `/run/${flowId}/${runId}`;
+      const errBlock = data.error ? `<div class="step-error">${(typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error)))}</div>` : '';
+      status.innerHTML = `<div class="run-progress">
+        <div class="run-progress-header">
+          <span class="badge ${headerCls}"><span class="dot"></span>${data.status}</span>
+          <a href="${detailLink}">ver detalle →</a>
+        </div>
+        ${renderProgress(data)}
+        ${errBlock}
+      </div>`;
+      if (isTerminal) {
+        stop = true;
+        btn.disabled = false;
+        btn.textContent = 'Ejecutar de nuevo';
+        showToast('Flow terminó: ' + data.status, data.status === 'completed' ? 'success' : 'error');
+        break;
+      }
+    } catch (e) {
+      consecutiveErrors++;
+      if (consecutiveErrors > 5) break;
+    }
+    await new Promise(r => setTimeout(r, 700));
+  }
+}
 async function runFlow(folder, btn) {
   const card = btn.closest('.flow-card');
   const status = card.querySelector('.live-status');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Ejecutando…';
-  status.innerHTML = '<span class="badge running"><span class="dot"></span>en ejecución</span>';
+  btn.innerHTML = '<span class="spinner"></span> Iniciando…';
+  status.innerHTML = '<span class="badge running"><span class="dot"></span>iniciando</span>';
   try {
     const res = await fetch('/api/run/' + encodeURIComponent(folder), { method: 'POST' });
     const data = await res.json();
-    if (data.ok) {
-      const cls = data.status === 'completed' ? 'completed' : 'failed';
-      status.innerHTML = `<span class="badge ${cls}"><span class="dot"></span>${data.status}</span> · <a href="/run/${data.flow_id}/${data.run_id}">ver detalle</a>`;
-      showToast('Flow ejecutado: ' + data.status, data.status === 'completed' ? 'success' : 'error');
+    if (data.ok && data.run_id) {
+      btn.innerHTML = '<span class="spinner"></span> En curso…';
+      pollStatus(data.run_id, card, btn, data.flow_id);
     } else {
       status.innerHTML = `<span class="badge failed"><span class="dot"></span>error</span> ${data.error || ''}`;
       showToast('Error: ' + (data.error || 'desconocido'), 'error');
+      btn.disabled = false;
+      btn.textContent = 'Ejecutar';
     }
   } catch (e) {
     status.innerHTML = `<span class="badge failed"><span class="dot"></span>error de red</span>`;
     showToast('Error de red', 'error');
-  } finally {
     btn.disabled = false;
     btn.textContent = 'Ejecutar';
   }
@@ -687,6 +850,9 @@ class AppHandler(BaseHTTPRequestHandler):
             flow_id = params.get('flow_id', [None])[0]
             limit = int(params.get('limit', ['50'])[0])
             return self._send_json(list_runs(flow_id=flow_id, limit=limit))
+        if path.startswith('/api/runs/') and path.endswith('/status'):
+            run_id = path[len('/api/runs/'):-len('/status')]
+            return self._send_json(_run_status_payload(run_id))
         if path.startswith('/flow/'):
             parts = [p for p in path.split('/') if p]
             folder = parts[1] if len(parts) > 1 else ''
@@ -724,16 +890,34 @@ class AppHandler(BaseHTTPRequestHandler):
             flow = get_flow_by_folder(folder)
             if not flow:
                 return self._send_json({'ok': False, 'error': 'flow no encontrado'}, status=404)
+            # Run async: instanciamos para reservar el run_id, lanzamos en thread,
+            # y devolvemos al cliente inmediatamente para que pueda hacer polling.
             try:
-                state = Orchestrator(Path(flow['flow_path'])).run()
-                return self._send_json({
-                    'ok': True,
-                    'run_id': state['run_id'],
-                    'status': state['status'],
-                    'flow_id': state['flow_id'],
-                })
-            except FlowExecutionError as exc:
+                orch = Orchestrator(Path(flow['flow_path']))
+                # Persistimos sincrónicamente antes de lanzar el thread para
+                # garantizar que el polling vea el run desde el primer tick.
+                orch.state['status'] = 'running'
+                orch._persist()
+            except Exception as exc:  # noqa: BLE001
                 return self._send_json({'ok': False, 'error': str(exc)}, status=500)
+            run_id = orch.run_id
+            flow_id = orch.definition.id
+
+            def _runner() -> None:
+                try:
+                    orch.run()
+                except FlowExecutionError:
+                    pass  # El estado quedó persistido como failed.
+                except Exception:  # noqa: BLE001
+                    pass
+
+            threading.Thread(target=_runner, daemon=True).start()
+            return self._send_json({
+                'ok': True,
+                'run_id': run_id,
+                'status': 'running',
+                'flow_id': flow_id,
+            })
         if path.startswith('/api/hook/'):
             folder = path[len('/api/hook/'):].strip('/')
             if not folder:

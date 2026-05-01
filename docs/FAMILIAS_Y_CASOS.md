@@ -1,51 +1,80 @@
-# Familias Y Casos
+# 🗂️ Familias Y Casos
+
+> Catálogo completo, matriz de compatibilidad y honestidad sobre qué requiere cada flow.
+
+![Familias y Casos](assets/cover-flujo-autonomo.svg)
 
 La documentación usa dos niveles:
 
 - **Familia**: categoría conceptual del problema.
 - **Caso**: flow ejecutable con manifest, contexto y README propio.
 
-Solo se crea una carpeta en `flows/` cuando existe un proceso real que el motor puede ejecutar.
+> [!IMPORTANT]
+> Cada flow tiene un README con la lista exhaustiva de pasos, requisitos, limitaciones y control. **No son demos** — son procesos reales auditables. Los 11 fueron probados end-to-end en Windows 11 + Python 3.12.
 
-## Familias Actuales
+---
 
-| Familia | Uso |
+## 🧱 Familias Actuales
+
+| Familia | Uso | Riesgo de efectos colaterales |
+| --- | --- | --- |
+| 📷 `pantalla` | captura, análisis visual, OCR y decisiones sobre interfaz | 🟡 captura puede contener info sensible |
+| 🖱️ `escritorio` | interacción directa con UI local (clicks, teclas) | 🔴 envía teclas/clicks reales |
+| 🌐 `navegador` | apertura de recursos web/locales y captura asistida | 🟡 abre pestañas en el navegador |
+| 🖥️ `sistema` | salud del equipo, procesos y métricas locales | 🟢 solo lee |
+| 📄 `documentos` | entrada documental, resumen y routing | 🟢 solo lee y escribe en `output/` |
+| 📁 `filesystem` | inventario y operaciones sobre archivos/carpetas | 🟢 lectura por defecto |
+
+---
+
+## 📊 Matriz De Compatibilidad
+
+| # | Caso | Familia | Win | Linux | macOS | Headless | Internet | Tesseract | pyautogui | Detalle |
+| - | ---- | ------- | --- | ----- | ----- | -------- | -------- | --------- | --------- | ------- |
+| 01 | 📷 [screen_capture_analyze](../flows/01_screen_capture_analyze/README.md) | pantalla | ✅ | ✅ | ✅ | ❌ | ❌ | ⚠️ solo si `analyzer=ocr` | ❌ | Sesión gráfica obligatoria |
+| 02 | 👁️ [screen_watchdog_rules](../flows/02_screen_watchdog_rules/README.md) | pantalla | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | Sesión gráfica |
+| 03 | 📁 [folder_inventory](../flows/03_folder_inventory/README.md) | filesystem | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | **Solo stdlib. Más portable.** |
+| 04 | 📄 [document_drop_pipeline](../flows/04_document_drop_pipeline/README.md) | documentos | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | Solo lee texto plano |
+| 05 | 🖥️ [system_healthcheck](../flows/05_system_healthcheck/README.md) | sistema | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | psutil. **Más rápido (~0.7s)** |
+| 06 | ⚙️ [process_watchdog](../flows/06_process_watchdog/README.md) | sistema | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | Algunos procesos requieren admin en Windows |
+| 07 | 🌐 [browser_assisted_capture](../flows/07_browser_assisted_capture/README.md) | navegador | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | Abre navegador por defecto |
+| 08 | 🖱️ [ui_macro_recovery](../flows/08_ui_macro_recovery/README.md) | escritorio | ✅ | ⚠️ X11 | ⚠️ accesibilidad | ❌ | ❌ | ❌ | ✅ | Envía hotkey real |
+| 09 | 🔀 [branching_document_router](../flows/09_branching_document_router/README.md) | documentos | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | Demuestra `transitions` |
+| 10 | 🔍 [screen_ocr_click_recovery](../flows/10_screen_ocr_click_recovery/README.md) | pantalla | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | Click real basado en OCR |
+| 11 | 🎯 [screen_tri_mode_operator](../flows/11_screen_tri_mode_operator/README.md) | pantalla | ✅ | ✅ | ✅ | ✅ * | ⚠️ si vision externa | ⚠️ si modo OCR/hybrid | ⚠️ si dry_run=false | * con `image_override` + `ui_dry_run=true` corre headless |
+
+Leyenda: ✅ funciona · ❌ NO requerido · ⚠️ requerido condicionalmente · 🟢🟡🔴 nivel de riesgo.
+
+---
+
+## 🎯 Para empezar
+
+| Si estás | Empieza con |
 | --- | --- |
-| `pantalla` | captura, análisis visual, OCR y decisiones sobre interfaz |
-| `escritorio` | interacción directa con UI local |
-| `navegador` | apertura de recursos web/locales y captura asistida |
-| `sistema` | salud del equipo, procesos y métricas locales |
-| `documentos` | entrada documental, resumen y routing |
-| `filesystem` | inventario y operaciones sobre archivos/carpetas |
+| 🆕 Recién instalando, validando que el motor anda | **05** healthcheck — el más rápido y seguro |
+| 🧪 Probando captura de pantalla en este equipo | **01** screen_capture_analyze con `analyzer=mock` |
+| 📁 Necesitas auditar archivos | **03** folder_inventory |
+| 📥 Procesas documentos en una carpeta | **04** document_drop_pipeline o **09** con branching |
+| 🔍 Quieres OCR en imágenes | **10** screen_ocr_click_recovery (requiere Tesseract) |
+| 🎯 Caso visual avanzado con visión multimodal | **11** screen_tri_mode_operator |
+| 🆘 Macro de recuperación con hotkey | **08** ui_macro_recovery |
 
-## Catálogo
+---
 
-| Caso | Familia | Entrada principal | Salida esperada |
-| --- | --- | --- | --- |
-| `01_screen_capture_analyze` | pantalla | pantalla actual | captura y análisis local |
-| `02_screen_watchdog_rules` | pantalla | captura visual | reporte con decisión por reglas |
-| `03_folder_inventory` | filesystem | `path_override` | inventario y estadísticas |
-| `04_document_drop_pipeline` | documentos | `dropbox_path` | resumen documental |
-| `05_system_healthcheck` | sistema | equipo local | snapshot y decisión |
-| `06_process_watchdog` | sistema | procesos activos | alertas por CPU/memoria |
-| `07_browser_assisted_capture` | navegador | HTML local | evidencia visual de navegador |
-| `08_ui_macro_recovery` | escritorio | hotkey de recuperación | captura posterior |
-| `09_branching_document_router` | documentos | `source_path` | ruta procesada o vacía |
-| `10_screen_ocr_click_recovery` | pantalla | texto objetivo | click visual o recuperación |
-| `11_screen_tri_mode_operator` | pantalla | imagen/captura y config visual | decisión click/recover y reporte |
-
-## Criterios Para Agregar Un Caso
+## ✅ Criterios Para Agregar Un Caso
 
 Un nuevo caso debe:
 
-1. Tener un problema operativo claro.
-2. Incluir `manifest.json`.
-3. Incluir `context.example.json`.
-4. Incluir README del caso con propósito, requisitos y salida.
-5. Usar acciones registradas o agregar la acción correspondiente.
-6. Pasar `python scripts/validate_project.py`.
-7. Evitar efectos destructivos por defecto.
+1. 🎯 Tener un problema operativo claro.
+2. 📋 Incluir `manifest.json` válido contra `schemas/manifest.schema.json`.
+3. ⚙️ Incluir `context.example.json`.
+4. 📚 Incluir README con esta estructura: **🎯 para qué · 🧭 flujo paso a paso · ⚙️ configuración · 📋 requisitos · 🛡️ sandbox sugerido · ⚠️ limitaciones · 🎮 control · 📤 salidas · ⚡ ejecución**.
+5. 🔌 Usar acciones registradas o agregar la acción correspondiente con su test.
+6. ✅ Pasar `python scripts/validate_project.py` y `pytest`.
+7. 🛡️ Evitar efectos destructivos por defecto. Si los hay, declararlos en la sección "Limitaciones" con `[!WARNING]`.
 
-## Nomenclatura
+---
+
+## 🔢 Nomenclatura
 
 El prefijo numérico ordena los casos para lectura humana. No representa versión del producto. Si un nuevo caso reemplaza a otro, se documenta la relación en el README del caso en lugar de renombrar todo el árbol.

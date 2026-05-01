@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 
@@ -63,6 +64,7 @@ def test_api_flows_lists_known_folders(live_server):
 
 @pytest.mark.integration
 def test_api_run_endpoint_returns_run_id(live_server):
+    """POST /api/run/<folder> ahora es asíncrono: devuelve run_id de inmediato."""
     req = urllib.request.Request(
         live_server + '/api/run/05_system_healthcheck',
         method='POST',
@@ -70,8 +72,36 @@ def test_api_run_endpoint_returns_run_id(live_server):
     with urllib.request.urlopen(req) as resp:
         data = json.loads(resp.read())
     assert data['ok'] is True
-    assert data['status'] == 'completed'
+    assert data['status'] == 'running'
     assert data['run_id']
+    assert data['flow_id'] == 'system_healthcheck'
+
+
+@pytest.mark.integration
+def test_api_run_status_polling_lifecycle(live_server):
+    """El endpoint de status debe pasar de running a completed para un flow rápido."""
+    req = urllib.request.Request(
+        live_server + '/api/run/05_system_healthcheck',
+        method='POST',
+    )
+    with urllib.request.urlopen(req) as resp:
+        run_data = json.loads(resp.read())
+    run_id = run_data['run_id']
+
+    final = None
+    for _ in range(30):
+        with urllib.request.urlopen(live_server + f'/api/runs/{run_id}/status') as resp:
+            payload = json.loads(resp.read())
+        assert payload['ok'] is True
+        assert isinstance(payload['steps'], list)
+        if payload['status'] in ('completed', 'failed'):
+            final = payload
+            break
+        time.sleep(0.3)
+    assert final is not None, 'el flow no terminó en el tiempo esperado'
+    assert final['status'] == 'completed'
+    statuses = {s['status'] for s in final['steps']}
+    assert 'success' in statuses
 
 
 @pytest.mark.integration

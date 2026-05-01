@@ -1,32 +1,75 @@
-# 06 Process Watchdog
+# ⚙️ 06 · Watchdog de procesos
 
-**Familia:** sistema.
+> Top de procesos por memoria y alertas si pasan umbrales de CPU o RAM.
 
-Lista procesos principales y marca alertas cuando superan umbrales de CPU o memoria.
+| | |
+| --- | --- |
+| **Familia** | sistema |
+| **Plataforma** | 🟢 Windows · 🟢 Linux · 🟢 macOS · 🟢 headless |
+| **Internet** | ❌ no requerido |
+| **Modifica el sistema** | ❌ solo lista procesos (no los mata) |
 
-## Cuándo Usarlo
+---
 
-- observar procesos pesados;
-- diagnosticar consumo local;
-- alimentar reportes periódicos de salud.
+## 🎯 Para qué sirve
 
-## Contexto
+- 🧯 Detectar procesos que escalan en memoria o CPU.
+- 🔍 Diagnosticar al vuelo qué tiene ocupado el PC.
+- 📋 Trazas auditables de uso de procesos.
 
-Los umbrales están declarados en el manifest. Pueden ajustarse creando una variante del flow o editando el manifest con cuidado.
+## 🧭 Flujo paso a paso
 
-## Salida
+| # | Paso | Acción | Qué hace |
+| --- | --- | --- | --- |
+| 1 | `top_processes` | `system.top_processes` | `psutil.process_iter`, RSS en MB, ordena por memoria, top 10. Skip silencioso de procesos protegidos. |
+| 2 | `watch_processes` | `system.watch_processes` | Para cada proceso del top: si `memory_mb >= 150` o `cpu_percent >= 70` → marca alerta con `reasons`. |
+| 3 | `write_report` | `filesystem.write_json` | Reporte con `top` y `watch.alerts`. |
 
-- top de procesos;
-- alertas por memoria o CPU;
-- reporte JSON en `output/reports/`.
+## ⚙️ Configuración
 
-## Requisitos
+`context.example.json` vacío. Umbrales en manifest:
 
-- dependencia `psutil`;
-- permisos suficientes para consultar procesos.
+```json
+{"limit": 10, "sort_by": "memory"}                          // top
+{"memory_mb_threshold": 150, "cpu_percent_threshold": 70}  // watch
+```
 
-## Ejecución
+## 📋 Requisitos
+
+- ✅ Python 3.10+ y `psutil`.
+- ⚠️ En Windows, algunos procesos del sistema requieren admin para inspección completa — el flow los salta sin error.
+
+## 🛡️ Sandbox sugerido
+
+```json
+{
+  "allowed_actions": ["system.top_processes", "system.watch_processes", "filesystem.write_json"],
+  "allowed_paths": ["output/reports"]
+}
+```
+
+## ⚠️ Limitaciones
+
+- ❌ No mata procesos, solo los reporta.
+- ❌ `cpu_percent` por `psutil.process_iter` es 0.0 en primera lectura — para valores reales necesitarías muestreo doble.
+- ⚠️ Listado puede no ser exhaustivo sin admin en Windows.
+
+## 🎮 Control que tienes
+
+| Aspecto | Cómo se cambia |
+| --- | --- |
+| Cuántos procesos | `limit` en manifest |
+| Criterio de orden | `sort_by`: `memory` o `cpu` |
+| Umbral de RAM | `memory_mb_threshold` |
+| Umbral de CPU | `cpu_percent_threshold` |
+
+## 📤 Salidas
+
+- 📊 `output/reports/process_watchdog_<ts>.json` con `top.processes`, `watch.alerts`, `watch.thresholds`.
+
+## ⚡ Ejecución
 
 ```bash
-python -m engine.runner run flows/06_process_watchdog
+flujo run flows/06_process_watchdog
+# Programar cada 5 min: */5 * * * *
 ```

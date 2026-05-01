@@ -1,34 +1,81 @@
-# 04 Document Drop Pipeline
+# 📄 04 · Pipeline documental de entrada
 
-**Familia:** documentos.
+> Escanea un buzón documental, clasifica archivos y resume contenido textual.
 
-Escanea un buzón documental, clasifica archivos por extensión y resume archivos de texto compatibles.
+| | |
+| --- | --- |
+| **Familia** | documentos |
+| **Plataforma** | 🟢 Windows · 🟢 Linux · 🟢 macOS · 🟢 headless |
+| **Internet** | ❌ no requerido |
+| **Modifica el sistema** | ❌ solo lee y escribe en `output/` |
 
-## Cuándo Usarlo
+---
 
-- procesar una carpeta de entrada documental;
-- revisar archivos `.txt`, `.md`, `.log`, `.csv` o `.json`;
-- generar un reporte legible de un dropbox local.
+## 🎯 Para qué sirve
 
-## Contexto
+- 📥 Procesar carpeta donde aterrizan documentos nuevos.
+- 📜 Resumen legible de un lote `.txt`, `.md`, `.log`, `.csv`, `.json`.
+- 🔄 Base para pipelines más complejos (clasificación, ingesta, OCR).
+
+## 🧭 Flujo paso a paso
+
+| # | Paso | Acción | Qué hace |
+| --- | --- | --- | --- |
+| 1 | `scan_dropbox` | `filesystem.list_directory` | Inventario plano de `dropbox_path`. |
+| 2 | `classify_dropbox` | `filesystem.classify_file_inventory` | Agrega por extensión + identifica archivo mayor. |
+| 3 | `summarize_texts` | `filesystem.summarize_text_folder` | Lee primeros `max_files=10` archivos compatibles, guarda preview de `max_chars_per_file=500` chars + conteo de líneas. |
+| 4 | `write_pipeline_report` | `filesystem.write_json` | Reporte con inventory, stats y summaries. |
+
+## ⚙️ Configuración
 
 ```json
-{"dropbox_path": "data/dropbox/inbox"}
+{ "dropbox_path": "data/dropbox/inbox" }
 ```
 
-## Salida
+Parámetros del paso `summarize_texts` (en manifest):
+- `max_files = 10` — máximo a previsualizar.
+- `max_chars_per_file = 500` — chars por archivo.
 
-- inventario de archivos;
-- estadísticas por extensión;
-- previews de documentos de texto;
-- reporte JSON en `output/reports/`.
+## 📋 Requisitos
 
-## Riesgos
+- ✅ Solo Python stdlib.
+- ✅ Permisos de lectura sobre `dropbox_path`.
 
-Lee contenido textual hasta el límite configurado. Evita apuntarlo a carpetas con información sensible si no necesitas registrar previews.
+## 🛡️ Sandbox sugerido
 
-## Ejecución
+```json
+{
+  "allowed_actions": [
+    "filesystem.list_directory", "filesystem.classify_file_inventory",
+    "filesystem.summarize_text_folder", "filesystem.write_json"
+  ],
+  "allowed_paths": ["data/dropbox", "output/reports"],
+  "max_runtime_seconds": 60
+}
+```
+
+## ⚠️ Limitaciones
+
+- ❌ Solo lee texto plano: `.txt`, `.md`, `.log`, `.csv`, `.json`. **No PDFs ni Word**.
+- ❌ No mueve ni borra archivos. Si quieres rotar, añade `filesystem.move_file`.
+- ⚠️ Los previews quedan en el reporte JSON.
+
+## 🎮 Control que tienes
+
+| Aspecto | Cómo se cambia |
+| --- | --- |
+| Carpeta de entrada | `dropbox_path` en config |
+| Cuántos archivos | `max_files` en manifest |
+| Chars por archivo | `max_chars_per_file` en manifest |
+| Extensiones soportadas | Editar `actions/filesystem.py:summarize_text_folder` |
+
+## 📤 Salidas
+
+- 📊 `output/reports/document_drop_pipeline_<ts>.json` con `inventory`, `stats`, `summary`.
+
+## ⚡ Ejecución
 
 ```bash
-python -m engine.runner run flows/04_document_drop_pipeline
+flujo run flows/04_document_drop_pipeline
+# Programar cada 30 min: */30 * * * *
 ```
