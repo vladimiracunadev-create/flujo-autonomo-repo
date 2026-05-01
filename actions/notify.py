@@ -12,12 +12,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from engine.secrets import get_secret
 
 
-def _resolve_token(token: Optional[str]) -> Optional[str]:
+def _resolve_token(token: str | None) -> str | None:
     if not token:
         return None
     if token.startswith('@secret:'):
@@ -28,13 +28,13 @@ def _resolve_token(token: Optional[str]) -> Optional[str]:
 def send_notification(
     message: str,
     backend: str = 'log',
-    target: Optional[str] = None,
-    token: Optional[str] = None,
-    extra: Optional[Dict[str, Any]] = None,
+    target: str | None = None,
+    token: str | None = None,
+    extra: dict[str, Any] | None = None,
     timeout: float = 10.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     timestamp = datetime.now(timezone.utc).isoformat()
-    record: Dict[str, Any] = {
+    record: dict[str, Any] = {
         'backend': backend,
         'message': message,
         'timestamp': timestamp,
@@ -62,10 +62,10 @@ def send_notification(
             raise ValueError("backend='webhook' requiere 'target' (URL)")
         import requests  # import perezoso para mantener el módulo importable sin requests
 
-        payload: Dict[str, Any] = {'text': message, 'timestamp': timestamp}
+        payload: dict[str, Any] = {'text': message, 'timestamp': timestamp}
         if extra:
             payload.update(extra)
-        headers: Dict[str, str] = {'Content-Type': 'application/json'}
+        headers: dict[str, str] = {'Content-Type': 'application/json'}
         resolved = _resolve_token(token)
         if resolved:
             headers['Authorization'] = f'Bearer {resolved}'

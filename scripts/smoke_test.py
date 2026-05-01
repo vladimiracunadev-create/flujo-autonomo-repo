@@ -8,9 +8,17 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from engine.catalog import list_flows  # noqa: E402
-from engine.paths import root_dir  # noqa: E402
-from engine.database import DB_PATH, get_run, init_db, list_runs, set_flow_config, set_schedule, sync_flows  # noqa: E402
+from engine.database import (  # noqa: E402
+    DB_PATH,
+    get_run,
+    init_db,
+    list_runs,
+    set_flow_config,
+    set_schedule,
+    sync_flows,
+)
 from engine.orchestrator import Orchestrator  # noqa: E402
+from engine.paths import root_dir  # noqa: E402
 from engine.scheduler import SchedulerService  # noqa: E402
 
 

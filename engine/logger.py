@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from engine.database import insert_event
 
@@ -14,7 +14,7 @@ class JsonlLogger:
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         self.run_id = run_id
 
-    def write(self, event_type: str, payload: Dict[str, Any]) -> None:
+    def write(self, event_type: str, payload: dict[str, Any]) -> None:
         timestamp = datetime.now(timezone.utc).isoformat()
         record = {
             'timestamp': timestamp,

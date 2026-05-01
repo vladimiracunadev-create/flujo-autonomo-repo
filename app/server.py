@@ -3,7 +3,6 @@ from __future__ import annotations
 import html
 import json
 import mimetypes
-import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -18,10 +17,12 @@ from engine.catalog import (
     load_run_events,
     load_run_steps,
 )
-from engine.paths import root_dir
 from engine.database import get_flow_config, get_schedule, init_db, set_flow_config, set_schedule, sync_flows
-from engine.metrics import by_flow as metrics_by_flow, overview as metrics_overview, prometheus_text
+from engine.metrics import by_flow as metrics_by_flow
+from engine.metrics import overview as metrics_overview
+from engine.metrics import prometheus_text
 from engine.orchestrator import FlowExecutionError, Orchestrator
+from engine.paths import root_dir
 from engine.scheduler import SchedulerService
 from engine.secrets import get_secret
 
@@ -215,9 +216,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
 def html_page(title: str, body: str, active_nav: str = '') -> bytes:
-    nav_link = lambda key, label: (
-        f'<a href="/#{key}" {"style=color:white" if active_nav == key else ""}>{label}</a>'
-    )
     page = f'''<!doctype html>
 <html lang="es">
 <head>

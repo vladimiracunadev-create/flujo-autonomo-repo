@@ -5,7 +5,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import requests
 from PIL import Image, ImageStat
@@ -22,7 +22,7 @@ def _image_to_data_url(image_path: Path) -> str:
     return f'data:{mime};base64,{encoded}'
 
 
-def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
+def _extract_json_object(text: str) -> dict[str, Any] | None:
     if not text:
         return None
     text = text.strip()
@@ -59,7 +59,7 @@ class VisionModelAnalyzer:
         api_key: str | None = None,
         api_key_env: str | None = None,
         timeout_seconds: int = 45,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         provider = (provider or 'mock').strip().lower()
         if provider == 'mock':
             return self._analyze_mock(image_path=image_path, prompt=prompt)
@@ -83,7 +83,7 @@ class VisionModelAnalyzer:
             )
         raise ValueError(f'Proveedor de visión no soportado: {provider}')
 
-    def _analyze_mock(self, image_path: Path, prompt: str = '') -> Dict[str, Any]:
+    def _analyze_mock(self, image_path: Path, prompt: str = '') -> dict[str, Any]:
         with Image.open(image_path) as img:
             rgb = img.convert('RGB')
             stat = ImageStat.Stat(rgb)
@@ -135,7 +135,7 @@ class VisionModelAnalyzer:
         api_key: str | None,
         api_key_env: str | None,
         timeout_seconds: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if not endpoint:
             raise RuntimeError('Debes indicar vision_endpoint para usar openai_compatible.')
         if not model:
@@ -186,7 +186,7 @@ class VisionModelAnalyzer:
         model: str | None,
         endpoint: str | None,
         timeout_seconds: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if not model:
             raise RuntimeError('Debes indicar vision_model para usar Ollama.')
         base_url = (endpoint or 'http://127.0.0.1:11434').rstrip('/')

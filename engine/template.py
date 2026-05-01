@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
 
 class SafeDict(dict):
@@ -10,8 +10,8 @@ class SafeDict(dict):
         return "{" + key + "}"
 
 
-def flatten_context(data: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
-    result: Dict[str, Any] = {}
+def flatten_context(data: dict[str, Any], prefix: str = "") -> dict[str, Any]:
+    result: dict[str, Any] = {}
     for key, value in data.items():
         compound = f"{prefix}.{key}" if prefix else key
         result[compound] = value
@@ -20,7 +20,7 @@ def flatten_context(data: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
     return result
 
 
-def _resolve_exact_placeholder(text: str, flat: Dict[str, Any]) -> Any:
+def _resolve_exact_placeholder(text: str, flat: dict[str, Any]) -> Any:
     match = re.fullmatch(r"\{\s*([^{}]+?)\s*\}", text)
     if not match:
         return None
@@ -28,7 +28,7 @@ def _resolve_exact_placeholder(text: str, flat: Dict[str, Any]) -> Any:
     return flat.get(key)
 
 
-def render_value(value: Any, context: Dict[str, Any]) -> Any:
+def render_value(value: Any, context: dict[str, Any]) -> Any:
     if isinstance(value, str):
         now = datetime.now().strftime("%Y%m%d_%H%M%S")
         prepared = value.replace("{{", "{").replace("}}", "}")

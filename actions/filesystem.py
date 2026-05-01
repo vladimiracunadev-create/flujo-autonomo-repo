@@ -3,17 +3,17 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 
-def ensure_directory(path: str) -> Dict[str, Any]:
+def ensure_directory(path: str) -> dict[str, Any]:
     directory = Path(path)
     directory.mkdir(parents=True, exist_ok=True)
     return {"path": str(directory), "exists": directory.exists()}
 
 
 
-def list_directory(path: str, recursive: bool = False) -> Dict[str, Any]:
+def list_directory(path: str, recursive: bool = False) -> dict[str, Any]:
     directory = Path(path)
     if not directory.exists():
         raise FileNotFoundError(f"La carpeta no existe: {path}")
@@ -34,7 +34,7 @@ def list_directory(path: str, recursive: bool = False) -> Dict[str, Any]:
 
 
 
-def write_json(path: str, data: Any) -> Dict[str, Any]:
+def write_json(path: str, data: Any) -> dict[str, Any]:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", encoding="utf-8") as fh:
@@ -43,7 +43,7 @@ def write_json(path: str, data: Any) -> Dict[str, Any]:
 
 
 
-def read_text_file(path: str, max_chars: int = 4000) -> Dict[str, Any]:
+def read_text_file(path: str, max_chars: int = 4000) -> dict[str, Any]:
     target = Path(path)
     if not target.exists():
         raise FileNotFoundError(f"Archivo no encontrado: {path}")
@@ -56,10 +56,10 @@ def read_text_file(path: str, max_chars: int = 4000) -> Dict[str, Any]:
 
 
 
-def classify_file_inventory(files: List[Dict[str, Any]]) -> Dict[str, Any]:
-    by_extension: Dict[str, int] = {}
+def classify_file_inventory(files: list[dict[str, Any]]) -> dict[str, Any]:
+    by_extension: dict[str, int] = {}
     total_size = 0
-    largest: Dict[str, Any] | None = None
+    largest: dict[str, Any] | None = None
 
     for item in files:
         ext = item.get("extension") or "[sin_ext]"
@@ -78,7 +78,7 @@ def classify_file_inventory(files: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 
-def summarize_text_folder(path: str, max_files: int = 10, max_chars_per_file: int = 800) -> Dict[str, Any]:
+def summarize_text_folder(path: str, max_files: int = 10, max_chars_per_file: int = 800) -> dict[str, Any]:
     directory = Path(path)
     if not directory.exists():
         raise FileNotFoundError(f"La carpeta no existe: {path}")
@@ -107,7 +107,7 @@ def summarize_text_folder(path: str, max_files: int = 10, max_chars_per_file: in
 
 
 
-def move_file(source_path: str, destination_path: str, overwrite: bool = False) -> Dict[str, Any]:
+def move_file(source_path: str, destination_path: str, overwrite: bool = False) -> dict[str, Any]:
     source = Path(source_path)
     destination = Path(destination_path)
     if not source.exists():

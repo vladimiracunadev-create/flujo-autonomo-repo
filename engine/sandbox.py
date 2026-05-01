@@ -15,9 +15,10 @@ una política permisiva por defecto que sólo registra los hechos.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any
 
 
 class SandboxViolation(Exception):
@@ -26,13 +27,13 @@ class SandboxViolation(Exception):
 
 @dataclass
 class SandboxPolicy:
-    allowed_actions: Optional[List[str]] = None
-    required_secrets: List[str] = field(default_factory=list)
-    allowed_paths: Optional[List[str]] = None
-    max_runtime_seconds: Optional[float] = None
+    allowed_actions: list[str] | None = None
+    required_secrets: list[str] = field(default_factory=list)
+    allowed_paths: list[str] | None = None
+    max_runtime_seconds: float | None = None
 
     @classmethod
-    def from_manifest(cls, manifest: Dict[str, Any]) -> 'SandboxPolicy':
+    def from_manifest(cls, manifest: dict[str, Any]) -> SandboxPolicy:
         return cls(
             allowed_actions=list(manifest['allowed_actions']) if manifest.get('allowed_actions') else None,
             required_secrets=list(manifest.get('required_secrets') or []),
@@ -44,7 +45,7 @@ class SandboxPolicy:
             ),
         )
 
-    def check_required_secrets(self) -> List[str]:
+    def check_required_secrets(self) -> list[str]:
         missing = [name for name in self.required_secrets if not os.environ.get(name)]
         return missing
 
@@ -101,7 +102,7 @@ class SandboxPolicy:
             and self.max_runtime_seconds is None
         )
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         return {
             'allowed_actions': self.allowed_actions,
             'required_secrets': self.required_secrets,

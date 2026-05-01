@@ -1,8 +1,6 @@
 """Smoke tests por acción que no requieren GUI ni red."""
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from actions import filesystem, rules, system, ui

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from PIL import Image
 
 
 class OCRImageAnalyzer:
-    def analyze(self, image_path: Path) -> Dict[str, Any]:
+    def analyze(self, image_path: Path) -> dict[str, Any]:
         try:
             import pytesseract
         except Exception as exc:  # noqa: BLE001
@@ -20,7 +20,7 @@ class OCRImageAnalyzer:
             raw_text = pytesseract.image_to_string(rgb)
             data = pytesseract.image_to_data(rgb, output_type=pytesseract.Output.DICT)
 
-        matches: List[Dict[str, Any]] = []
+        matches: list[dict[str, Any]] = []
         for index, text in enumerate(data.get('text', [])):
             clean = (text or '').strip()
             if not clean:

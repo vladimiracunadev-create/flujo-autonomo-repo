@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from importlib import import_module
-from typing import Callable, Dict, Iterable, Optional
 
 ActionFn = Callable[..., dict]
 
@@ -18,12 +18,12 @@ class LazyActionRegistry:
       en el entorno (publicadas por terceros vía ``pyproject.toml``).
     """
 
-    def __init__(self, action_paths: Dict[str, str]) -> None:
-        self._action_paths: Dict[str, str] = dict(action_paths)
-        self._cache: Dict[str, ActionFn] = {}
+    def __init__(self, action_paths: dict[str, str]) -> None:
+        self._action_paths: dict[str, str] = dict(action_paths)
+        self._cache: dict[str, ActionFn] = {}
         self._entry_points_loaded = False
 
-    def get(self, action_name: str) -> Optional[ActionFn]:
+    def get(self, action_name: str) -> ActionFn | None:
         if action_name in self._cache:
             return self._cache[action_name]
         if action_name not in self._action_paths:
@@ -66,7 +66,7 @@ class LazyActionRegistry:
             self._action_paths.setdefault(ep.name, ep.value)
 
 
-_BUILT_IN_ACTIONS: Dict[str, str] = {
+_BUILT_IN_ACTIONS: dict[str, str] = {
     'filesystem.ensure_directory': 'actions.filesystem:ensure_directory',
     'filesystem.list_directory': 'actions.filesystem:list_directory',
     'filesystem.write_json': 'actions.filesystem:write_json',

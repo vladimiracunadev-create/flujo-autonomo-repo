@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -19,13 +19,13 @@ from engine.action_registry import ACTION_REGISTRY  # noqa: E402
 from engine.manifest_schema import validate_manifest_data  # noqa: E402
 
 
-def _load_json(path: Path) -> Dict[str, Any]:
+def _load_json(path: Path) -> dict[str, Any]:
     with path.open('r', encoding='utf-8') as fh:
         return json.load(fh)
 
 
-def _validate_manifest(path: Path) -> List[str]:
-    errors: List[str] = []
+def _validate_manifest(path: Path) -> list[str]:
+    errors: list[str] = []
     manifest = _load_json(path)
     flow_label = path.parent.name
 
@@ -35,11 +35,11 @@ def _validate_manifest(path: Path) -> List[str]:
         return errors
 
     steps = manifest.get('steps') or []
-    step_ids: List[str] = []
+    step_ids: list[str] = []
     known_actions = set(ACTION_REGISTRY.keys())
     allowed = set(manifest.get('allowed_actions') or [])
 
-    for index, step in enumerate(steps, start=1):
+    for _index, step in enumerate(steps, start=1):
         step_id = step.get('id')
         action = step.get('action')
         if step_id in step_ids:
@@ -67,7 +67,7 @@ def _validate_manifest(path: Path) -> List[str]:
 
 def main() -> None:
     manifests = sorted((ROOT / 'flows').glob('*/manifest.json'))
-    errors: List[str] = []
+    errors: list[str] = []
     for manifest_path in manifests:
         try:
             errors.extend(_validate_manifest(manifest_path))

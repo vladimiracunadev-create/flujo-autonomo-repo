@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from engine.database import get_events, get_flow_config, get_run, get_schedule, get_steps, list_runs as db_list_runs
+from engine.database import get_events, get_flow_config, get_run, get_schedule, get_steps
+from engine.database import list_runs as db_list_runs
 
 
 def root_dir() -> Path:
@@ -15,16 +16,16 @@ def flows_dir() -> Path:
     return root_dir() / 'flows'
 
 
-def list_flow_folders() -> List[Path]:
+def list_flow_folders() -> list[Path]:
     return sorted([p for p in flows_dir().iterdir() if p.is_dir()])
 
 
-def load_manifest(flow_folder: Path) -> Dict[str, Any]:
+def load_manifest(flow_folder: Path) -> dict[str, Any]:
     return json.loads((flow_folder / 'manifest.json').read_text(encoding='utf-8'))
 
 
-def list_flows() -> List[Dict[str, Any]]:
-    items: List[Dict[str, Any]] = []
+def list_flows() -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
     for folder in list_flow_folders():
         manifest = load_manifest(folder)
         items.append(
@@ -41,7 +42,7 @@ def list_flows() -> List[Dict[str, Any]]:
     return items
 
 
-def get_flow_by_folder(folder_name: str) -> Optional[Dict[str, Any]]:
+def get_flow_by_folder(folder_name: str) -> dict[str, Any] | None:
     folder = flows_dir() / folder_name
     if not folder.exists() or not folder.is_dir():
         return None
@@ -61,25 +62,25 @@ def get_flow_by_folder(folder_name: str) -> Optional[Dict[str, Any]]:
     }
 
 
-def list_runs(flow_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+def list_runs(flow_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
     return db_list_runs(flow_id=flow_id, limit=limit)
 
 
-def find_run(flow_id: str, run_id: str) -> Optional[Dict[str, Any]]:
+def find_run(flow_id: str, run_id: str) -> dict[str, Any] | None:
     run = get_run(run_id)
     if not run or run.get('flow_id') != flow_id:
         return None
     return run
 
 
-def load_run_events(flow_id: str, run_id: str) -> List[Dict[str, Any]]:
+def load_run_events(flow_id: str, run_id: str) -> list[dict[str, Any]]:
     run = get_run(run_id)
     if not run or run.get('flow_id') != flow_id:
         return []
     return get_events(run_id)
 
 
-def load_run_steps(flow_id: str, run_id: str) -> List[Dict[str, Any]]:
+def load_run_steps(flow_id: str, run_id: str) -> list[dict[str, Any]]:
     run = get_run(run_id)
     if not run or run.get('flow_id') != flow_id:
         return []

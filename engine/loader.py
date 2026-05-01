@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from engine.models import FlowDefinition, StepDefinition, TransitionDefinition
 
@@ -56,7 +56,7 @@ class FlowLoader:
         )
 
     @staticmethod
-    def load_context(flow_dir: Path, explicit_context_path: Path | None = None) -> Dict[str, Any]:
+    def load_context(flow_dir: Path, explicit_context_path: Path | None = None) -> dict[str, Any]:
         candidates = []
         if explicit_context_path:
             candidates.append(explicit_context_path)

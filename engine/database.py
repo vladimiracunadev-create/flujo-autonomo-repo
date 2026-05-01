@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterable
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any
 
 from engine.paths import root_dir
 
@@ -116,7 +116,7 @@ def init_db() -> None:
         _ensure_column(conn, 'schedules', 'cron_expression', 'cron_expression TEXT')
 
 
-def sync_flows(flows: List[Dict[str, Any]]) -> None:
+def sync_flows(flows: list[dict[str, Any]]) -> None:
     now = utc_now()
     with connect() as conn:
         for flow in flows:
@@ -144,7 +144,7 @@ def sync_flows(flows: List[Dict[str, Any]]) -> None:
             )
 
 
-def upsert_run(state: Dict[str, Any], flow_folder: str, state_path: str, log_path: str) -> None:
+def upsert_run(state: dict[str, Any], flow_folder: str, state_path: str, log_path: str) -> None:
     with connect() as conn:
         conn.execute(
             '''
@@ -181,7 +181,7 @@ def upsert_run(state: Dict[str, Any], flow_folder: str, state_path: str, log_pat
         )
 
 
-def insert_step(run_id: str, sequence_no: int, step_record: Dict[str, Any]) -> None:
+def insert_step(run_id: str, sequence_no: int, step_record: dict[str, Any]) -> None:
     with connect() as conn:
         conn.execute(
             '''
@@ -206,7 +206,7 @@ def insert_step(run_id: str, sequence_no: int, step_record: Dict[str, Any]) -> N
         )
 
 
-def insert_event(run_id: str, event_type: str, payload: Dict[str, Any], event_time: Optional[str] = None) -> None:
+def insert_event(run_id: str, event_type: str, payload: dict[str, Any], event_time: str | None = None) -> None:
     with connect() as conn:
         conn.execute(
             'INSERT INTO events(run_id, event_time, event_type, payload_json) VALUES(?,?,?,?)',
@@ -219,9 +219,9 @@ def insert_event(run_id: str, event_type: str, payload: Dict[str, Any], event_ti
         )
 
 
-def list_runs(flow_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+def list_runs(flow_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
     query = 'SELECT * FROM runs'
-    params: List[Any] = []
+    params: list[Any] = []
     if flow_id:
         query += ' WHERE flow_id = ?'
         params.append(flow_id)
@@ -232,25 +232,25 @@ def list_runs(flow_id: Optional[str] = None, limit: int = 100) -> List[Dict[str,
     return [dict(row) for row in rows]
 
 
-def get_run(run_id: str) -> Optional[Dict[str, Any]]:
+def get_run(run_id: str) -> dict[str, Any] | None:
     with connect() as conn:
         row = conn.execute('SELECT * FROM runs WHERE run_id = ?', (run_id,)).fetchone()
     return dict(row) if row else None
 
 
-def get_steps(run_id: str) -> List[Dict[str, Any]]:
+def get_steps(run_id: str) -> list[dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute('SELECT * FROM steps WHERE run_id = ? ORDER BY sequence_no ASC, id ASC', (run_id,)).fetchall()
     return [dict(row) for row in rows]
 
 
-def get_events(run_id: str) -> List[Dict[str, Any]]:
+def get_events(run_id: str) -> list[dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute('SELECT * FROM events WHERE run_id = ? ORDER BY id ASC', (run_id,)).fetchall()
     return [dict(row) for row in rows]
 
 
-def get_flow_config(folder: str) -> Optional[Dict[str, Any]]:
+def get_flow_config(folder: str) -> dict[str, Any] | None:
     with connect() as conn:
         row = conn.execute('SELECT config_json FROM flow_configs WHERE folder = ?', (folder,)).fetchone()
     if not row:
@@ -258,7 +258,7 @@ def get_flow_config(folder: str) -> Optional[Dict[str, Any]]:
     return json.loads(row['config_json'])
 
 
-def set_flow_config(folder: str, config: Dict[str, Any]) -> None:
+def set_flow_config(folder: str, config: dict[str, Any]) -> None:
     config_path = root_dir() / 'configs' / f'{folder}.json'
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -273,7 +273,7 @@ def set_flow_config(folder: str, config: Dict[str, Any]) -> None:
         )
 
 
-def get_schedule(folder: str) -> Dict[str, Any]:
+def get_schedule(folder: str) -> dict[str, Any]:
     with connect() as conn:
         row = conn.execute('SELECT * FROM schedules WHERE folder = ?', (folder,)).fetchone()
     if not row:
@@ -287,7 +287,7 @@ def get_schedule(folder: str) -> Dict[str, Any]:
     return dict(row)
 
 
-def list_schedules() -> List[Dict[str, Any]]:
+def list_schedules() -> list[dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute('SELECT * FROM schedules ORDER BY folder ASC').fetchall()
     return [dict(row) for row in rows]
@@ -296,11 +296,11 @@ def list_schedules() -> List[Dict[str, Any]]:
 def set_schedule(
     folder: str,
     enabled: bool,
-    interval_seconds: Optional[int] = None,
-    cron_expression: Optional[str] = None,
-) -> Dict[str, Any]:
+    interval_seconds: int | None = None,
+    cron_expression: str | None = None,
+) -> dict[str, Any]:
     now = utc_now()
-    next_run_at: Optional[str] = None
+    next_run_at: str | None = None
     if enabled:
         if cron_expression:
             from engine.cron import next_after  # import local para evitar ciclos
@@ -326,11 +326,11 @@ def set_schedule(
 
 def mark_schedule_run(
     folder: str,
-    interval_seconds: Optional[int] = None,
-    cron_expression: Optional[str] = None,
+    interval_seconds: int | None = None,
+    cron_expression: str | None = None,
 ) -> None:
     now = datetime.now(timezone.utc)
-    next_run: Optional[str] = None
+    next_run: str | None = None
     if cron_expression:
         from engine.cron import next_after
         try:
@@ -367,7 +367,7 @@ def release_run_lock(folder: str, run_id: str) -> None:
         )
 
 
-def list_run_locks() -> List[Dict[str, Any]]:
+def list_run_locks() -> list[dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute('SELECT * FROM run_locks ORDER BY acquired_at ASC').fetchall()
     return [dict(row) for row in rows]

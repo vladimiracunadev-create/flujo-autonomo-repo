@@ -1,12 +1,12 @@
 """Agregaciones simples sobre la tabla ``runs`` y ``steps`` para el panel."""
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 from engine.database import connect
 
 
-def overview(window_runs: int = 200) -> Dict[str, Any]:
+def overview(window_runs: int = 200) -> dict[str, Any]:
     """Resumen global: totales por estado, duración promedio y top fallos."""
     with connect() as conn:
         totals = {row['status']: row['c'] for row in conn.execute(
@@ -67,7 +67,7 @@ def overview(window_runs: int = 200) -> Dict[str, Any]:
     }
 
 
-def by_flow(limit: int = 50) -> List[Dict[str, Any]]:
+def by_flow(limit: int = 50) -> list[dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute(
             '''
@@ -90,7 +90,7 @@ def by_flow(limit: int = 50) -> List[Dict[str, Any]]:
 def prometheus_text() -> str:
     """Exposición Prometheus-text con un puñado de métricas útiles."""
     o = overview()
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append('# HELP flujo_runs_total Total de corridas por estado.')
     lines.append('# TYPE flujo_runs_total counter')
     for status, count in (o['totals_by_status'] or {}).items():

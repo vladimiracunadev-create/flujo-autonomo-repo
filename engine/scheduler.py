@@ -4,7 +4,7 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from engine.catalog import get_flow_by_folder
 from engine.database import (
@@ -35,13 +35,13 @@ class SchedulerService:
     def stop(self) -> None:
         self._stop.set()
 
-    def start_in_background(self) -> 'SchedulerService':
+    def start_in_background(self) -> SchedulerService:
         thread = threading.Thread(target=self.serve_forever, daemon=True)
         thread.start()
         return self
 
     @staticmethod
-    def _should_run(schedule: Dict[str, Any]) -> bool:
+    def _should_run(schedule: dict[str, Any]) -> bool:
         if not int(schedule.get('enabled') or 0):
             return False
         next_run_at = schedule.get('next_run_at')
@@ -50,7 +50,7 @@ class SchedulerService:
         due = datetime.fromisoformat(str(next_run_at).replace('Z', '+00:00'))
         return due <= datetime.now(timezone.utc)
 
-    def _run_job(self, folder: str, interval_seconds: Optional[int], cron_expression: Optional[str]) -> None:
+    def _run_job(self, folder: str, interval_seconds: int | None, cron_expression: str | None) -> None:
         run_id = datetime.now(timezone.utc).strftime('sched_%Y%m%dT%H%M%S%fZ')
         if not acquire_run_lock(folder, run_id):
             return

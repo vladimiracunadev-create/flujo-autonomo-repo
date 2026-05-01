@@ -14,15 +14,14 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from engine.paths import root_dir
 
 SECRETS_PATH = root_dir() / 'secrets' / 'secrets.json'
 
 
-def _load_file_secrets() -> Dict[str, Any]:
+def _load_file_secrets() -> dict[str, Any]:
     if not SECRETS_PATH.exists():
         return {}
     try:
@@ -31,7 +30,7 @@ def _load_file_secrets() -> Dict[str, Any]:
         return {}
 
 
-def get_secret(name: str, default: Optional[str] = None) -> Optional[str]:
+def get_secret(name: str, default: str | None = None) -> str | None:
     """Resuelve un secreto. Devuelve ``default`` si no existe."""
     if name in os.environ and os.environ[name] != '':
         return os.environ[name]
@@ -49,9 +48,9 @@ def set_secret(name: str, value: str) -> None:
     SECRETS_PATH.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
-def list_secret_names() -> Dict[str, str]:
+def list_secret_names() -> dict[str, str]:
     """Devuelve los nombres conocidos sin exponer los valores."""
-    names: Dict[str, str] = {}
+    names: dict[str, str] = {}
     for key in _load_file_secrets():
         names[key] = 'file'
     for key in os.environ:

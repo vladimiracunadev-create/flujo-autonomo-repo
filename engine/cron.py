@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
 
 
 class CronExpressionError(ValueError):
@@ -23,7 +22,7 @@ class CronExpressionError(ValueError):
 
 @dataclass(frozen=True)
 class CronField:
-    values: List[int]
+    values: list[int]
 
 
 _FIELD_RANGES = (
@@ -38,7 +37,7 @@ _FIELD_RANGES = (
 def _parse_field(spec: str, low: int, high: int) -> CronField:
     if spec == '*':
         return CronField(list(range(low, high + 1)))
-    values: List[int] = []
+    values: list[int] = []
     for part in spec.split(','):
         step = 1
         if '/' in part:
@@ -60,13 +59,13 @@ def _parse_field(spec: str, low: int, high: int) -> CronField:
     return CronField(sorted(set(values)))
 
 
-def parse_cron(expression: str) -> List[CronField]:
+def parse_cron(expression: str) -> list[CronField]:
     parts = expression.strip().split()
     if len(parts) != 5:
         raise CronExpressionError(
             f"Se esperaban 5 campos cron (min hour dom month dow), se recibieron {len(parts)}: {expression!r}"
         )
-    return [_parse_field(part, low, high) for part, (low, high) in zip(parts, _FIELD_RANGES)]
+    return [_parse_field(part, low, high) for part, (low, high) in zip(parts, _FIELD_RANGES, strict=False)]
 
 
 def _iso_weekday(dt: datetime) -> int:
@@ -107,7 +106,7 @@ def next_after(expression: str, after: datetime) -> datetime:
     raise CronExpressionError(f'No se encontró próxima ejecución dentro de un horizonte razonable: {expression}')
 
 
-def validate(expression: str) -> Optional[str]:
+def validate(expression: str) -> str | None:
     try:
         parse_cron(expression)
         return None

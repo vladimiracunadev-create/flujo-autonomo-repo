@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 
-def _get_path(data: Dict[str, Any], path: str) -> Any:
+def _get_path(data: dict[str, Any], path: str) -> Any:
     current: Any = data
     for part in path.split("."):
         if isinstance(current, dict):
@@ -31,7 +31,7 @@ def _matches(value: Any, operator: str, expected: Any) -> bool:
 
 
 
-def evaluate_rules(input_data: Dict[str, Any], rules: List[Dict[str, Any]], default_status: str = "no_match") -> Dict[str, Any]:
+def evaluate_rules(input_data: dict[str, Any], rules: list[dict[str, Any]], default_status: str = "no_match") -> dict[str, Any]:
     evaluated = []
     for rule in rules:
         path = rule["path"]

@@ -3,18 +3,18 @@ from __future__ import annotations
 import platform
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any
 
 import psutil
 
 
-def wait_seconds(seconds: float) -> Dict[str, Any]:
+def wait_seconds(seconds: float) -> dict[str, Any]:
     time.sleep(seconds)
     return {"waited_seconds": seconds}
 
 
 
-def snapshot_system() -> Dict[str, Any]:
+def snapshot_system() -> dict[str, Any]:
     memory = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
     return {
@@ -30,8 +30,8 @@ def snapshot_system() -> Dict[str, Any]:
 
 
 
-def top_processes(limit: int = 10, sort_by: str = "memory") -> Dict[str, Any]:
-    entries: List[Dict[str, Any]] = []
+def top_processes(limit: int = 10, sort_by: str = "memory") -> dict[str, Any]:
+    entries: list[dict[str, Any]] = []
     for proc in psutil.process_iter(["pid", "name", "cpu_percent", "memory_info"]):
         try:
             info = proc.info
@@ -53,7 +53,7 @@ def top_processes(limit: int = 10, sort_by: str = "memory") -> Dict[str, Any]:
 
 
 
-def watch_processes(processes: List[Dict[str, Any]], memory_mb_threshold: float = 250.0, cpu_percent_threshold: float = 60.0) -> Dict[str, Any]:
+def watch_processes(processes: list[dict[str, Any]], memory_mb_threshold: float = 250.0, cpu_percent_threshold: float = 60.0) -> dict[str, Any]:
     alerts = []
     for proc in processes:
         reasons = []

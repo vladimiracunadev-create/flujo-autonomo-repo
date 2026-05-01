@@ -1,38 +1,38 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
 class TransitionDefinition:
     on: str = "success"
-    next_step: Optional[str] = None
+    next_step: str | None = None
     end: bool = False
-    when: Optional[Dict[str, Any]] = None
+    when: dict[str, Any] | None = None
 
 
 @dataclass
 class StepDefinition:
     id: str
     action: str
-    params: Dict[str, Any] = field(default_factory=dict)
-    save_as: Optional[str] = None
+    params: dict[str, Any] = field(default_factory=dict)
+    save_as: str | None = None
     retries: int = 0
-    when: Optional[Dict[str, Any]] = None
-    transitions: List[TransitionDefinition] = field(default_factory=list)
+    when: dict[str, Any] | None = None
+    transitions: list[TransitionDefinition] = field(default_factory=list)
 
 
 @dataclass
 class FlowDefinition:
     id: str
     name: str
-    steps: List[StepDefinition]
+    steps: list[StepDefinition]
     description: str = ""
     family: str = "general"
-    start_step: Optional[str] = None
+    start_step: str | None = None
     max_steps_per_run: int = 200
-    allowed_actions: Optional[List[str]] = None
-    required_secrets: List[str] = field(default_factory=list)
-    allowed_paths: Optional[List[str]] = None
-    max_runtime_seconds: Optional[float] = None
+    allowed_actions: list[str] | None = None
+    required_secrets: list[str] = field(default_factory=list)
+    allowed_paths: list[str] | None = None
+    max_runtime_seconds: float | None = None

@@ -8,24 +8,23 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from engine.paths import root_dir
 
 SCHEMA_PATH = root_dir() / 'schemas' / 'manifest.schema.json'
 
 
-def _load_schema() -> Dict[str, Any]:
+def _load_schema() -> dict[str, Any]:
     with SCHEMA_PATH.open('r', encoding='utf-8') as fh:
         return json.load(fh)
 
 
-def validate_manifest_data(data: Dict[str, Any]) -> List[str]:
+def validate_manifest_data(data: dict[str, Any]) -> list[str]:
     """Devuelve lista de errores. Vacía = válido."""
-    errors: List[str] = []
+    errors: list[str] = []
     try:
-        import jsonschema  # type: ignore
-        from jsonschema import Draft202012Validator  # type: ignore
+        from jsonschema import Draft202012Validator
     except ImportError:
         return _fallback_validate(data)
 
@@ -37,8 +36,8 @@ def validate_manifest_data(data: Dict[str, Any]) -> List[str]:
     return errors
 
 
-def _fallback_validate(data: Dict[str, Any]) -> List[str]:
-    errors: List[str] = []
+def _fallback_validate(data: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
     if not isinstance(data, dict):
         return ['raíz: el manifest debe ser un objeto JSON']
     for required in ('id', 'name', 'steps'):
@@ -59,7 +58,7 @@ def _fallback_validate(data: Dict[str, Any]) -> List[str]:
     return errors
 
 
-def validate_manifest_file(path: Path) -> List[str]:
+def validate_manifest_file(path: Path) -> list[str]:
     with path.open('r', encoding='utf-8') as fh:
         data = json.load(fh)
     return validate_manifest_data(data)

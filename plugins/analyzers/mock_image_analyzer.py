@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from PIL import Image, ImageStat
 
@@ -13,7 +13,7 @@ class MockImageAnalyzer:
     del flujo. Luego puede reemplazarse por OCR, CV local o un conector IA.
     """
 
-    def analyze(self, image_path: Path) -> Dict[str, Any]:
+    def analyze(self, image_path: Path) -> dict[str, Any]:
         with Image.open(image_path) as img:
             rgb = img.convert("RGB")
             stat = ImageStat.Stat(rgb)

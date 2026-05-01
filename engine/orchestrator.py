@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from engine.action_registry import ACTION_REGISTRY
 from engine.conditions import evaluate_condition
@@ -38,7 +38,7 @@ class Orchestrator:
         self.state_store = StateStore(self.state_path)
         self.steps_by_id = {step.id: step for step in self.definition.steps}
         self.step_order = [step.id for step in self.definition.steps]
-        self.state: Dict[str, Any] = {
+        self.state: dict[str, Any] = {
             'flow_id': self.definition.id,
             'flow_name': self.definition.name,
             'description': self.definition.description,
@@ -65,7 +65,7 @@ class Orchestrator:
         self.state_store.save(self.state)
         upsert_run(self.state, self.flow_dir.name, str(self.state_path), str(self.log_path))
 
-    def _default_next(self, current_step_id: str) -> Optional[str]:
+    def _default_next(self, current_step_id: str) -> str | None:
         try:
             index = self.step_order.index(current_step_id)
         except ValueError:
@@ -75,7 +75,7 @@ class Orchestrator:
             return None
         return self.step_order[next_index]
 
-    def _resolve_transition(self, step, event: str) -> Optional[str]:
+    def _resolve_transition(self, step, event: str) -> str | None:
         for transition in step.transitions:
             if transition.on not in {event, 'any'}:
                 continue
@@ -87,7 +87,7 @@ class Orchestrator:
                 return transition.next_step
         return self._default_next(step.id)
 
-    def run(self) -> Dict[str, Any]:
+    def run(self) -> dict[str, Any]:
         started_at = datetime.now(timezone.utc)
         try:
             self.policy.assert_secrets_present()

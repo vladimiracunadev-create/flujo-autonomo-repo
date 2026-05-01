@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 
-def _capture_with_mss(output_path: Path) -> Dict[str, Any]:
+def _capture_with_mss(output_path: Path) -> dict[str, Any]:
     import mss
     import mss.tools
 
@@ -20,7 +20,7 @@ def _capture_with_mss(output_path: Path) -> Dict[str, Any]:
         }
 
 
-def _capture_with_pillow(output_path: Path) -> Dict[str, Any]:
+def _capture_with_pillow(output_path: Path) -> dict[str, Any]:
     from PIL import ImageGrab
 
     img = ImageGrab.grab()
@@ -33,7 +33,7 @@ def _capture_with_pillow(output_path: Path) -> Dict[str, Any]:
     }
 
 
-def capture_screenshot(output_path: str) -> Dict[str, Any]:
+def capture_screenshot(output_path: str) -> dict[str, Any]:
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
 

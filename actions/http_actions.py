@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import requests
 
 
-def fetch_url(url: str, output_path: str | None = None, timeout: float = 15.0) -> Dict[str, Any]:
+def fetch_url(url: str, output_path: str | None = None, timeout: float = 15.0) -> dict[str, Any]:
     response = requests.get(url, timeout=timeout)
     response.raise_for_status()
     result = {

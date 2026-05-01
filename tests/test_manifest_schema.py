@@ -1,13 +1,11 @@
 """Cada manifest del repo debe pasar la validación contra el schema."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
 from engine.manifest_schema import validate_manifest_data, validate_manifest_file
-
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 

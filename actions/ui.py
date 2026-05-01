@@ -5,7 +5,7 @@ import subprocess
 import time
 import webbrowser
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 
 def _import_pyautogui():
@@ -20,12 +20,12 @@ def _import_pyautogui():
         ) from exc
 
 
-def open_url(url: str, new_tab: bool = True) -> Dict[str, Any]:
+def open_url(url: str, new_tab: bool = True) -> dict[str, Any]:
     opened = webbrowser.open(url, new=2 if new_tab else 0)
     return {'url': url, 'opened': bool(opened)}
 
 
-def open_file_in_browser(path: str, new_tab: bool = True) -> Dict[str, Any]:
+def open_file_in_browser(path: str, new_tab: bool = True) -> dict[str, Any]:
     target = Path(path).resolve()
     if not target.exists():
         raise FileNotFoundError(f'Archivo no encontrado: {path}')
@@ -33,7 +33,7 @@ def open_file_in_browser(path: str, new_tab: bool = True) -> Dict[str, Any]:
     return {'path': str(target), 'opened': bool(opened), 'uri': target.as_uri()}
 
 
-def launch_process(command: str, wait_seconds: float = 0.0, shell: bool = False, dry_run: bool = False) -> Dict[str, Any]:
+def launch_process(command: str, wait_seconds: float = 0.0, shell: bool = False, dry_run: bool = False) -> dict[str, Any]:
     command = command.strip()
     if not command:
         raise ValueError('Se requiere un comando no vacio para lanzar un proceso.')
@@ -48,7 +48,7 @@ def launch_process(command: str, wait_seconds: float = 0.0, shell: bool = False,
     return {'command': command, 'pid': process.pid, 'launched': True, 'dry_run': False, 'shell': shell}
 
 
-def hotkey(keys: List[str], interval: float = 0.0, dry_run: bool = False) -> Dict[str, Any]:
+def hotkey(keys: list[str], interval: float = 0.0, dry_run: bool = False) -> dict[str, Any]:
     if dry_run:
         return {'keys': keys, 'sent': False, 'dry_run': True}
     pyautogui = _import_pyautogui()
@@ -56,7 +56,7 @@ def hotkey(keys: List[str], interval: float = 0.0, dry_run: bool = False) -> Dic
     return {'keys': keys, 'sent': True, 'dry_run': False}
 
 
-def type_text(text: str, interval: float = 0.01, dry_run: bool = False) -> Dict[str, Any]:
+def type_text(text: str, interval: float = 0.01, dry_run: bool = False) -> dict[str, Any]:
     if dry_run:
         return {'text_length': len(text), 'typed': False, 'dry_run': True, 'preview': text[:200]}
     pyautogui = _import_pyautogui()
@@ -64,7 +64,7 @@ def type_text(text: str, interval: float = 0.01, dry_run: bool = False) -> Dict[
     return {'text_length': len(text), 'typed': True, 'dry_run': False}
 
 
-def click(x: int, y: int, clicks: int = 1, interval: float = 0.0, button: str = 'left', dry_run: bool = False) -> Dict[str, Any]:
+def click(x: int, y: int, clicks: int = 1, interval: float = 0.0, button: str = 'left', dry_run: bool = False) -> dict[str, Any]:
     if dry_run:
         return {'x': x, 'y': y, 'clicks': clicks, 'button': button, 'clicked': False, 'dry_run': True}
     pyautogui = _import_pyautogui()
@@ -72,7 +72,7 @@ def click(x: int, y: int, clicks: int = 1, interval: float = 0.0, button: str = 
     return {'x': x, 'y': y, 'clicks': clicks, 'button': button, 'clicked': True, 'dry_run': False}
 
 
-def click_bbox(bbox: Dict[str, Any], clicks: int = 1, interval: float = 0.0, button: str = 'left', dry_run: bool = False) -> Dict[str, Any]:
+def click_bbox(bbox: dict[str, Any], clicks: int = 1, interval: float = 0.0, button: str = 'left', dry_run: bool = False) -> dict[str, Any]:
     if not bbox:
         raise ValueError('Se requiere un bbox para hacer click visual.')
     left = int(bbox.get('left', 0))

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict
+from typing import Any
 
 
-def get_path(data: Dict[str, Any], path: str, default: Any = None) -> Any:
+def get_path(data: dict[str, Any], path: str, default: Any = None) -> Any:
     current: Any = data
     for part in path.split('.'):
         if isinstance(current, dict):
@@ -44,7 +44,7 @@ def matches(actual: Any, operator: str, expected: Any = None) -> bool:
     raise ValueError(f'Operador no soportado: {operator}')
 
 
-def evaluate_condition(condition: Dict[str, Any] | None, context: Dict[str, Any]) -> bool:
+def evaluate_condition(condition: dict[str, Any] | None, context: dict[str, Any]) -> bool:
     if not condition:
         return True
     if 'all' in condition:

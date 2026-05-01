@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any
 
 
-def extract_existing_paths(data: Any) -> List[Dict[str, Any]]:
-    found: List[Dict[str, Any]] = []
-    seen: Set[str] = set()
+def extract_existing_paths(data: Any) -> list[dict[str, Any]]:
+    found: list[dict[str, Any]] = []
+    seen: set[str] = set()
 
     def walk(value: Any, trail: str = "root") -> None:
         if isinstance(value, dict):

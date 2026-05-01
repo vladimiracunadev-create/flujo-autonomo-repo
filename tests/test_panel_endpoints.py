@@ -6,13 +6,12 @@ import threading
 import time
 import urllib.request
 from http.server import ThreadingHTTPServer
-from pathlib import Path
 
 import pytest
 
 from app.server import AppHandler
-from engine.database import init_db, sync_flows
 from engine.catalog import list_flows
+from engine.database import init_db, sync_flows
 
 
 @pytest.fixture()

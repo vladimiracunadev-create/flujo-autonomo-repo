@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from plugins.analyzers.base import AnalyzerProtocol
 from plugins.analyzers.metadata_image_analyzer import MetadataImageAnalyzer
 from plugins.analyzers.mock_image_analyzer import MockImageAnalyzer
 from plugins.analyzers.ocr_image_analyzer import OCRImageAnalyzer
 from plugins.analyzers.vision_model_analyzer import VisionModelAnalyzer
-
 
 ANALYZERS: dict[str, AnalyzerProtocol] = {
     'mock': MockImageAnalyzer(),
@@ -19,7 +18,7 @@ ANALYZERS: dict[str, AnalyzerProtocol] = {
 VISION_ANALYZER = VisionModelAnalyzer()
 
 
-def analyze_image(image_path: str, analyzer: str = 'mock') -> Dict[str, Any]:
+def analyze_image(image_path: str, analyzer: str = 'mock') -> dict[str, Any]:
     target = Path(image_path)
     if not target.exists():
         raise FileNotFoundError(f'Imagen no encontrada: {image_path}')
@@ -34,13 +33,13 @@ def analyze_image(image_path: str, analyzer: str = 'mock') -> Dict[str, Any]:
     }
 
 
-def ocr_image(image_path: str) -> Dict[str, Any]:
+def ocr_image(image_path: str) -> dict[str, Any]:
     return analyze_image(image_path=image_path, analyzer='ocr')
 
 
-def find_text_in_image(image_path: str, query: str, case_sensitive: bool = False) -> Dict[str, Any]:
+def find_text_in_image(image_path: str, query: str, case_sensitive: bool = False) -> dict[str, Any]:
     ocr_result = ocr_image(image_path)
-    matches: List[Dict[str, Any]] = []
+    matches: list[dict[str, Any]] = []
     query_norm = query if case_sensitive else query.lower()
     for item in ocr_result.get('matches', []):
         text = item.get('text', '')
@@ -58,7 +57,7 @@ def find_text_in_image(image_path: str, query: str, case_sensitive: bool = False
     }
 
 
-def select_image(image_path: str) -> Dict[str, Any]:
+def select_image(image_path: str) -> dict[str, Any]:
     target = Path(image_path)
     if not target.exists():
         raise FileNotFoundError(f'Imagen no encontrada: {image_path}')
@@ -69,7 +68,7 @@ def select_image(image_path: str) -> Dict[str, Any]:
     }
 
 
-def _normalize_bbox(value: Any) -> Dict[str, Any] | None:
+def _normalize_bbox(value: Any) -> dict[str, Any] | None:
     if not value or not isinstance(value, dict):
         return None
     keys = {'left', 'top', 'width', 'height'}
@@ -93,21 +92,21 @@ def inspect_screen_target(
     vision_prompt: str = '',
     vision_api_key: str | None = None,
     vision_api_key_env: str | None = None,
-    fallback_bbox: Dict[str, Any] | None = None,
+    fallback_bbox: dict[str, Any] | None = None,
     prefer_source: str = 'ocr',
     timeout_seconds: int = 45,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     target = Path(image_path)
     if not target.exists():
         raise FileNotFoundError(f'Imagen no encontrada: {image_path}')
 
     mode = (mode or 'hybrid').strip().lower()
     prefer_source = (prefer_source or 'ocr').strip().lower()
-    diagnostics: List[Dict[str, Any]] = []
-    ocr_payload: Dict[str, Any] | None = None
-    vision_payload: Dict[str, Any] | None = None
-    ocr_target: Dict[str, Any] | None = None
-    vision_target: Dict[str, Any] | None = None
+    diagnostics: list[dict[str, Any]] = []
+    ocr_payload: dict[str, Any] | None = None
+    vision_payload: dict[str, Any] | None = None
+    ocr_target: dict[str, Any] | None = None
+    vision_target: dict[str, Any] | None = None
 
     if mode in {'ocr', 'hybrid'}:
         try:
