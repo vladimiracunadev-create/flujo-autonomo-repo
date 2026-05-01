@@ -1,4 +1,8 @@
-# Integraciones
+# 🔌 Integraciones
+
+> Webhook entrante para disparar flows + `notify.send` para emitir notificaciones.
+
+![Integraciones](assets/cover-flujo-autonomo.svg)
 
 Dos vías para conectar Flujo Autónomo con el resto del mundo: webhook entrante para disparar flows desde sistemas externos, y la acción `notify.send` para emitir notificaciones al final de un flow.
 

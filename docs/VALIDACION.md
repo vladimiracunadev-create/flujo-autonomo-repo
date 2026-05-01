@@ -1,4 +1,8 @@
-# Validación
+# ✅ Validación
+
+> Tres niveles de validación: schema, pytest e integración real.
+
+![Validación](assets/cover-flujo-autonomo.svg)
 
 El repositorio tiene tres niveles de validación, ordenados de barato a caro: schema + estructura, suite pytest e integración real.
 

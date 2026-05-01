@@ -1,4 +1,8 @@
-# Extender Con Acciones De Terceros
+# 🧩 Extender Con Acciones De Terceros
+
+> Publica tus propias acciones en un paquete pip y aparecerán en el registro automáticamente.
+
+![Extension](assets/cover-flujo-autonomo.svg)
 
 `LazyActionRegistry` descubre acciones publicadas como entry-points en el grupo `flujo.actions`. Cualquier paquete instalado en el mismo entorno puede aportar acciones nuevas sin tocar este repo.
 

@@ -1,8 +1,26 @@
-# Operación
+# 📖 Operación
 
-Esta guía describe cómo usar Flujo Autónomo en un entorno local sin asumir infraestructura externa.
+> Cómo usar Flujo Autónomo en un entorno local sin asumir infraestructura externa.
 
-## Preparación
+![Operación](assets/cover-flujo-autonomo.svg)
+
+## 📑 Tabla de contenidos
+
+- [⚡ Preparación](#-preparación)
+- [🖥️ Panel Local](#️-panel-local)
+- [⌨️ CLI](#️-cli)
+- [⚙️ Contexto operativo](#️-contexto-operativo)
+- [🔐 Secretos](#-secretos)
+- [⏰ Scheduler con cron](#-scheduler-con-cron)
+- [🔒 Concurrencia](#-concurrencia)
+- [📂 Salidas](#-salidas)
+- [🌐 Endpoints HTTP](#-endpoints-http)
+- [🎯 Flujo recomendado de operación](#-flujo-recomendado-de-operación)
+- [✅ Criterios para scheduler](#-criterios-para-scheduler)
+
+---
+
+## ⚡ Preparación
 
 ### Con uv (recomendado)
 
@@ -20,7 +38,18 @@ source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -e ".[dev,schema]"
 ```
 
-## Panel Local
+## 🖥️ Panel Local
+
+El panel está organizado en 3 tabs:
+
+| Tab | Para qué |
+| --- | --- |
+| **▶ Ejecutar** | Click-to-run en tiempo real por flow, status live, link a detalle |
+| **⏰ Programadas** | Activar/configurar scheduler con intervalo o cron, ver next/last run |
+| **📜 Histórico** | Tabla buscable de todas las corridas, badge de estado, duración |
+
+Para arrancarlo:
+
 
 ```bash
 uv run python -m app.server          # con uv
@@ -36,15 +65,17 @@ http://127.0.0.1:8787
 
 Desde el panel puedes:
 
-- ver todos los flows;
-- ejecutar un flow manualmente;
-- editar el contexto operativo guardado en `configs/`;
-- activar/desactivar scheduler por flow (intervalo o cron);
-- revisar historial y detalle de corridas;
-- abrir archivos generados dentro del workspace;
-- consultar el dashboard de métricas en `/metrics/dashboard`.
+- 👀 ver todos los flows;
+- ▶ ejecutar un flow manualmente con un clic;
+- ✏️ editar el contexto operativo guardado en `configs/`;
+- ⏰ activar/desactivar scheduler por flow (intervalo o cron);
+- 📜 revisar historial y detalle de corridas;
+- 🖼️ abrir archivos generados dentro del workspace (capturas con thumbnail inline);
+- 📊 consultar el dashboard de métricas en `/metrics/dashboard`.
 
-## CLI
+---
+
+## ⌨️ CLI
 
 Tras instalar el paquete editable, los entry-points son:
 
@@ -65,7 +96,9 @@ python -m engine.runner scheduler --interval 2
 python scripts/validate_project.py
 ```
 
-## Contexto Operativo
+---
+
+## ⚙️ Contexto operativo
 
 El contexto se carga en este orden:
 
@@ -81,7 +114,9 @@ Recomendaciones:
 - usa `configs/` para operación local;
 - **nunca** guardes secretos ahí — usa la bóveda local (ver abajo).
 
-## Secretos
+---
+
+## 🔐 Secretos
 
 Dos fuentes, prioridad env > file:
 
@@ -98,7 +133,9 @@ get_secret("MY_API_KEY")
 
 Los flows pueden exigirlos con `required_secrets` (sandbox) y las acciones (p. ej. `notify.send`) pueden referenciarlos con `@secret:NOMBRE`.
 
-## Scheduler Con Cron
+---
+
+## ⏰ Scheduler con cron
 
 Desde el panel, en la página de configuración del flow, ahora se puede definir una expresión cron de 5 campos:
 
@@ -115,7 +152,9 @@ Soporta listas (`1,3,5`), rangos (`9-17`) y pasos (`*/5`). No soporta nombres si
 
 Si dejas la expresión vacía, se usa el `interval_seconds` clásico.
 
-## Concurrencia
+---
+
+## 🔒 Concurrencia
 
 El scheduler no lanzará dos corridas paralelas del mismo flow. Esto se hace con `run_locks` en SQLite (sobrevive a reinicios). Si hace falta forzar la liberación tras una caída, usa:
 
@@ -124,34 +163,41 @@ from engine.database import force_release_lock
 force_release_lock("05_system_healthcheck")
 ```
 
-## Salidas
+---
+
+## 📂 Salidas
 
 | Carpeta | Contenido |
 | --- | --- |
-| `db/runs.db` | historial consultable |
-| `state/*.json` | estado completo de cada corrida |
-| `logs/*.jsonl` | eventos técnicos |
-| `output/reports/*.json` | reportes físicos |
-| `output/screenshots/*.png` | capturas |
+| 💾 `db/runs.db` | historial consultable |
+| 📂 `state/*.json` | estado completo de cada corrida |
+| 📜 `logs/*.jsonl` | eventos técnicos |
+| 📊 `output/reports/*.json` | reportes físicos |
+| 🖼️ `output/screenshots/*.png` | capturas |
 
-## Endpoints HTTP
+---
+
+## 🌐 Endpoints HTTP
 
 | Endpoint | Uso |
 | --- | --- |
-| `GET /` | catálogo y ejecución manual |
-| `GET /flow/<folder>` | info del flow |
-| `GET /flow/<folder>/config` | editor de contexto y scheduler |
-| `GET /flow/<folder>/history` | histórico |
-| `GET /run/<flow_id>/<run_id>` | detalle de corrida |
-| `GET /metrics/dashboard` | dashboard HTML de métricas |
-| `GET /api/flows`, `GET /api/runs`, `GET /api/metrics` | JSON |
-| `GET /metrics` | Prometheus text |
-| `GET /healthz` | check simple |
-| `POST /api/hook/<folder>` | disparador externo (header `X-Flujo-Token`) |
+| 🏠 `GET /` | panel 3-tabs (Ejecutar · Programadas · Histórico) |
+| 📋 `GET /flow/<folder>` | info del flow |
+| ⚙️ `GET /flow/<folder>/config` | editor de contexto y scheduler |
+| 📜 `GET /flow/<folder>/history` | histórico por flow |
+| 🔍 `GET /run/<flow_id>/<run_id>` | detalle de corrida con thumbnails |
+| 📊 `GET /metrics/dashboard` | dashboard HTML con KPI cards |
+| 🌐 `GET /api/flows`, `GET /api/runs`, `GET /api/metrics` | JSON |
+| 📈 `GET /metrics` | Prometheus text |
+| ✅ `GET /healthz` | check simple |
+| ⚡ `POST /api/run/<folder>` | click-to-run desde el panel |
+| 🪝 `POST /api/hook/<folder>` | disparador externo (header `X-Flujo-Token`) |
 
 Detalle del webhook en [INTEGRACIONES.md](INTEGRACIONES.md). Detalle de métricas en [METRICAS.md](METRICAS.md).
 
-## Flujo Recomendado De Operación
+---
+
+## 🎯 Flujo recomendado de operación
 
 1. Ejecuta `python scripts/validate_project.py`.
 2. Ejecuta `pytest -q` si tocaste motor, acciones o schema.
@@ -162,7 +208,9 @@ Detalle del webhook en [INTEGRACIONES.md](INTEGRACIONES.md). Detalle de métrica
 7. Activa scheduler solo cuando el flow ya corrió bien manualmente.
 8. Si lo expones a integraciones externas, configura `FLUJO_WEBHOOK_TOKEN`.
 
-## Criterios Para Scheduler
+---
+
+## ✅ Criterios para scheduler
 
 Activa scheduler cuando:
 

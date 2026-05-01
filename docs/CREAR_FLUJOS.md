@@ -1,6 +1,15 @@
-# Crear Flows
+# ✏️ Crear Flows
+
+> Contrato para escribir nuevos manifests, validados por JSON Schema.
+
+![Crear Flujos](assets/cover-flujo-autonomo.svg)
 
 Un flow es un proceso ejecutable dentro de `flows/<nombre>/`. Debe ser comprensible para una persona y válido para el motor (JSON Schema en `schemas/manifest.schema.json`).
+
+> [!TIP]
+> Apunta tu `manifest.json` al schema con `"$schema": "../../schemas/manifest.schema.json"` y obtendrás autocompletado en VS Code y JetBrains.
+
+---
 
 ## Estructura Mínima
 

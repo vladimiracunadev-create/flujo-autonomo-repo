@@ -1,4 +1,8 @@
-# Métricas Operativas
+# 📊 Métricas Operativas
+
+> Endpoints, dashboard HTML y exposición Prometheus para observabilidad.
+
+![Métricas](assets/cover-flujo-autonomo.svg)
 
 El panel expone agregaciones sobre las tablas `runs` y `steps` de SQLite. Todo se calcula on-demand: no hay un proceso de agregación separado.
 

@@ -1,8 +1,17 @@
-# Seguridad Operativa
+# 🛡️ Seguridad Operativa
+
+> Sandbox declarativo por flow, bóveda de secretos y modelo de confianza.
+
+![Seguridad](assets/cover-flujo-autonomo.svg)
 
 Flujo Autónomo ejecuta automatizaciones locales. Eso lo hace útil, pero también exige tratar cada manifest como código operativo. Desde la versión 0.2.0, cada flow declara su propia política de sandbox que el motor hace cumplir.
 
-## Modelo De Confianza
+> [!WARNING]
+> Si vas a aceptar manifests de terceros, **siempre revísalos antes de ejecutarlos**. El sandbox declarativo limita el daño pero no es aislamiento OS-level.
+
+---
+
+## 🤝 Modelo De Confianza
 
 El sistema asume que:
 
@@ -17,7 +26,9 @@ No asume:
 - control multiusuario;
 - revisión semántica completa de comandos arbitrarios.
 
-## Sandbox Por Flow
+---
+
+## 🔒 Sandbox Por Flow
 
 El motor aplica cuatro controles declarativos. Detalle en [engine/sandbox.py](../engine/sandbox.py):
 
@@ -44,7 +55,9 @@ Ejemplo:
 
 Las violaciones se registran como evento `step_blocked` o `flow_blocked`, y la corrida queda en `failed` con `error.kind = "sandbox_violation"`. El validador (`scripts/validate_project.py`) revisa además que las acciones declaradas en `allowed_actions` no excluyan acciones que el flow realmente usa.
 
-## Bóveda De Secretos
+---
+
+## 🔐 Bóveda De Secretos
 
 `engine/secrets.py` resuelve en orden:
 
@@ -61,7 +74,9 @@ get_secret("MY_TOKEN")
 
 Las acciones que aceptan tokens (p. ej. `notify.send` con `backend=webhook`) admiten la sintaxis `@secret:NOMBRE` para no embeberlos en el manifest.
 
-## Webhook De Entrada
+---
+
+## 🪝 Webhook De Entrada
 
 El endpoint `POST /api/hook/<folder>` permite disparar flows externamente. Está deshabilitado por defecto: sólo acepta peticiones cuando el secreto `FLUJO_WEBHOOK_TOKEN` está definido y el header `X-Flujo-Token` coincide.
 
@@ -73,19 +88,23 @@ curl -X POST -H "X-Flujo-Token: $FLUJO_WEBHOOK_TOKEN" \
 
 Si vas a exponerlo más allá de localhost, ponlo detrás de un reverse proxy con TLS y autorización adicional.
 
-## Superficies Sensibles
+---
+
+## ⚠️ Superficies Sensibles
 
 | Superficie | Riesgo | Control actual |
 | --- | --- | --- |
-| Filesystem | leer, mover o escribir archivos | `allowed_paths` por flow + `.gitignore` para salidas |
-| UI automation | clicks, hotkeys y escritura | `dry_run` en acciones UI críticas |
-| Procesos | ejecución local | `ui.launch_process` con `shell=false` por defecto |
-| Red | requests HTTP | acción explícita; los webhooks salientes resuelven token vía `@secret:` |
-| Pantalla | captura visible | ejecución local y archivos ignorados |
-| Visión externa | envío de imágenes | proveedor configurable y `mock` por defecto en pruebas |
-| Webhook entrante | ejecución remota | token obligatorio + sólo localhost por defecto |
+| 📁 Filesystem | leer, mover o escribir archivos | `allowed_paths` por flow + `.gitignore` para salidas |
+| 🖱️ UI automation | clicks, hotkeys y escritura | `dry_run` en acciones UI críticas |
+| ⚙️ Procesos | ejecución local | `ui.launch_process` con `shell=false` por defecto |
+| 🌐 Red | requests HTTP | acción explícita; los webhooks salientes resuelven token vía `@secret:` |
+| 📷 Pantalla | captura visible | ejecución local y archivos ignorados |
+| 👁️ Visión externa | envío de imágenes | proveedor configurable y `mock` por defecto en pruebas |
+| 🪝 Webhook entrante | ejecución remota | token obligatorio + sólo localhost por defecto |
 
-## Reglas De Uso Seguro
+---
+
+## ✅ Reglas De Uso Seguro
 
 1. Revisa `manifest.json` antes de ejecutar un flow nuevo.
 2. Ejecuta `python scripts/validate_project.py` antes de correr.
@@ -96,7 +115,9 @@ Si vas a exponerlo más allá de localhost, ponlo detrás de un reverse proxy co
 7. No apuntes acciones filesystem a carpetas críticas sin backup.
 8. Trata `fallback_bbox` como configuración manual, no como detección.
 
-## Acciones Con Mayor Cuidado
+---
+
+## ⚡ Acciones Con Mayor Cuidado
 
 - `filesystem.move_file`
 - `filesystem.write_json`
@@ -108,7 +129,9 @@ Si vas a exponerlo más allá de localhost, ponlo detrás de un reverse proxy co
 - `screen.capture_screenshot`
 - `notify.send` con `backend=webhook` (el token sale del proceso)
 
-## Buenas Prácticas Para Manifests
+---
+
+## 🎯 Buenas Prácticas Para Manifests
 
 - Prefiere rutas dentro del workspace.
 - Escribe reportes en `output/reports/`.
@@ -119,7 +142,9 @@ Si vas a exponerlo más allá de localhost, ponlo detrás de un reverse proxy co
 - Deja contexto de ejemplo sin secretos.
 - Para flows críticos, declara `allowed_actions` aunque sea redundante: documenta el alcance.
 
-## Datos Sensibles
+---
+
+## 📊 Datos Sensibles
 
 Los archivos generados pueden contener:
 
@@ -132,7 +157,9 @@ Los archivos generados pueden contener:
 
 Por eso `db/*.db`, `logs/*.jsonl`, `state/*.json`, `output/**/*.json`, `output/**/*.png` y `secrets/*.json` están ignorados por git.
 
-## Alcance Actual
+---
+
+## 🎁 Alcance Actual
 
 La 0.2.0 agrega sandbox declarativo, secretos y webhook autenticado. Para uso multiusuario, integración empresarial o ejecución de manifests no confiables haría falta:
 

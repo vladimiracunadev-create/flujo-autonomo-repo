@@ -1,21 +1,29 @@
-# Arquitectura
+# 📐 Arquitectura
+
+> Diseño técnico, capas y flujo de ejecución del orquestador.
+
+![Arquitectura](assets/cover-flujo-autonomo.svg)
 
 Flujo Autónomo está organizado como un motor local de automatización declarativa. Su unidad mínima es un flow: una carpeta dentro de `flows/` con `manifest.json`, contexto de ejemplo y documentación corta. El motor aplica una política de sandbox por flow y persiste cada corrida en SQLite + snapshots JSON + eventos JSONL.
 
-## Capas
+---
+
+## 🧱 Capas
 
 | Capa | Carpeta | Responsabilidad |
 | --- | --- | --- |
-| Panel local + API | `app/` | UI HTML, endpoints JSON, métricas y webhook autenticado |
-| Motor | `engine/` | carga manifests, valida schema, aplica sandbox, ejecuta pasos, scheduler con cron, métricas |
-| Acciones | `actions/` | funciones concretas: filesystem, sistema, pantalla, UI, HTTP, reglas, visión, notificación |
-| Plugins | `plugins/` | analizadores extensibles para imágenes y OCR |
-| Casos | `flows/` | procesos ejecutables declarados como JSON |
-| Schema | `schemas/` | contrato JSON Schema del manifest |
-| Tests | `tests/` | suite pytest unitaria + integración |
-| Estado | `db/`, `state/`, `logs/`, `output/`, `secrets/` | historial, snapshots, eventos, salidas y bóveda local |
+| 🖥️ Panel local + API | `app/` | UI 3-tabs, endpoints JSON, métricas y webhook autenticado |
+| ⚙️ Motor | `engine/` | carga manifests, valida schema, aplica sandbox, ejecuta pasos, scheduler con cron, métricas |
+| 📦 Acciones | `actions/` | funciones concretas: filesystem, sistema, pantalla, UI, HTTP, reglas, visión, notificación |
+| 🧩 Plugins | `plugins/` | analizadores extensibles para imágenes y OCR |
+| 📋 Casos | `flows/` | procesos ejecutables declarados como JSON |
+| 🧪 Schema | `schemas/` | contrato JSON Schema del manifest |
+| ✅ Tests | `tests/` | suite pytest unitaria + integración |
+| 💾 Estado | `db/`, `state/`, `logs/`, `output/`, `secrets/` | historial, snapshots, eventos, salidas y bóveda local |
 
-## Flujo De Ejecución
+---
+
+## 🔄 Flujo De Ejecución
 
 ```mermaid
 sequenceDiagram
@@ -47,7 +55,9 @@ sequenceDiagram
     Engine->>Store: marca completed/failed
 ```
 
-## Componentes Clave
+---
+
+## 🔩 Componentes Clave
 
 - [engine/loader.py](../engine/loader.py): lee `manifest.json` y contexto operativo.
 - [engine/manifest_schema.py](../engine/manifest_schema.py): validación contra `schemas/manifest.schema.json` con fallback estructural si `jsonschema` no está disponible.
@@ -63,7 +73,9 @@ sequenceDiagram
 - [engine/secrets.py](../engine/secrets.py): bóveda env > file.
 - [app/server.py](../app/server.py): panel + API JSON + `/metrics` + webhook `/api/hook/<folder>`.
 
-## Persistencia
+---
+
+## 💾 Persistencia
 
 | Recurso | Uso |
 | --- | --- |
@@ -74,7 +86,9 @@ sequenceDiagram
 | `output/screenshots/*.png` | capturas de pantalla cuando aplica |
 | `secrets/secrets.json` | bóveda local (ignorada por git) |
 
-## Contrato De Un Paso
+---
+
+## 📜 Contrato De Un Paso
 
 Un paso declara:
 
@@ -86,7 +100,9 @@ Un paso declara:
 - `retries`: reintentos ante error.
 - `transitions`: rutas explícitas hacia otros pasos o fin.
 
-## Política De Sandbox
+---
+
+## 🛡️ Política De Sandbox
 
 Campos opcionales del manifest aplicados por el motor antes y durante la corrida:
 
@@ -99,11 +115,15 @@ Campos opcionales del manifest aplicados por el motor antes y durante la corrida
 
 Las violaciones se registran como evento `step_blocked`/`flow_blocked` y la corrida queda en `failed` con `error.kind = "sandbox_violation"`.
 
-## Branching
+---
+
+## 🔀 Branching
 
 El motor resuelve transiciones en orden. Si una transición coincide por evento (`success`, `failure` o `any`) y su condición `when` es verdadera, se toma esa ruta. Si ninguna aplica, avanza al siguiente paso declarado.
 
-## Scheduler
+---
+
+## ⏰ Scheduler
 
 Lee la tabla `schedules`, compara `next_run_at` con la hora UTC actual y dispara corridas en threads daemon. Soporta dos modos:
 
@@ -112,7 +132,9 @@ Lee la tabla `schedules`, compara `next_run_at` con la hora UTC actual y dispara
 
 La concurrencia se controla en `run_locks` (insert único por folder). Si una corrida está activa, el scheduler omite el folder en ese tick.
 
-## Métricas Y API
+---
+
+## 📊 Métricas Y API
 
 El panel expone:
 
@@ -123,12 +145,16 @@ El panel expone:
 - `/metrics/dashboard` — vista HTML de las métricas.
 - `POST /api/hook/<folder>` — disparador externo autenticado por header `X-Flujo-Token`.
 
-## Empaquetado Y CI
+---
+
+## 📦 Empaquetado Y CI
 
 - `pyproject.toml` declara dependencias, extras (`dev`, `schema`) y entry-points para CLI (`flujo`, `flujo-panel`, `flujo-validate`) y para acciones built-in (`flujo.actions`).
 - CI en GitHub Actions usa `uv` en matriz Linux/Windows × Python 3.10/3.11/3.12: lint con ruff, validación de manifests, pytest con cobertura, smoke job.
 
-## Diseño Local-First
+---
+
+## 🏠 Diseño Local-First
 
 - Panel en `127.0.0.1`.
 - Base SQLite local.
@@ -137,7 +163,12 @@ El panel expone:
 - Integración con Ollama o endpoints compatibles cuando el operador lo decide.
 - Webhook deshabilitado por defecto (requiere `FLUJO_WEBHOOK_TOKEN`).
 
-## Límites Arquitectónicos Actuales
+---
+
+## 🚧 Límites Arquitectónicos Actuales
+
+> [!IMPORTANT]
+> Estos límites son deliberados para mantener simplicidad. Si tu caso los vuelve críticos, fork el repo y agrega lo que necesites; el motor está diseñado para ser extensible.
 
 - Sandbox aplica a nivel orquestador, no a nivel OS — un proceso lanzado por una acción permitida puede saltarse `allowed_paths`.
 - No hay multiusuario ni RBAC en el panel.
