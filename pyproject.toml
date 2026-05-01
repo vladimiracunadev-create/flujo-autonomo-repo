@@ -1,0 +1,101 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "flujo-autonomo"
+version = "0.2.0"
+description = "Orquestador local de procesos para PC: flows declarativos, ejecución trazable, scheduler y panel operativo."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Vladimir Acuña" }]
+keywords = ["automation", "workflow", "orchestrator", "local-first", "ocr"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Monitoring",
+]
+dependencies = [
+    "Pillow",
+    "psutil",
+    "requests",
+    "mss",
+    "pyautogui",
+    "pytesseract",
+]
+
+[project.optional-dependencies]
+schema = ["jsonschema>=4"]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.5",
+    "jsonschema>=4",
+]
+
+[project.scripts]
+flujo = "engine.runner:main"
+flujo-panel = "app.server:run_server"
+flujo-validate = "scripts.validate_project:main"
+
+[project.entry-points."flujo.actions"]
+# Built-in actions exposed via the same entry-point mechanism third-party
+# packages use. Format: "<action.name> = <module>:<callable>".
+"filesystem.ensure_directory" = "actions.filesystem:ensure_directory"
+"filesystem.list_directory" = "actions.filesystem:list_directory"
+"filesystem.write_json" = "actions.filesystem:write_json"
+"filesystem.read_text_file" = "actions.filesystem:read_text_file"
+"filesystem.classify_file_inventory" = "actions.filesystem:classify_file_inventory"
+"filesystem.summarize_text_folder" = "actions.filesystem:summarize_text_folder"
+"filesystem.move_file" = "actions.filesystem:move_file"
+"screen.capture_screenshot" = "actions.screen:capture_screenshot"
+"vision.analyze_image" = "actions.vision:analyze_image"
+"vision.ocr_image" = "actions.vision:ocr_image"
+"vision.find_text_in_image" = "actions.vision:find_text_in_image"
+"vision.select_image" = "actions.vision:select_image"
+"vision.inspect_screen_target" = "actions.vision:inspect_screen_target"
+"system.wait_seconds" = "actions.system:wait_seconds"
+"system.snapshot_system" = "actions.system:snapshot_system"
+"system.top_processes" = "actions.system:top_processes"
+"system.watch_processes" = "actions.system:watch_processes"
+"rules.evaluate" = "actions.rules:evaluate_rules"
+"ui.open_url" = "actions.ui:open_url"
+"ui.open_file_in_browser" = "actions.ui:open_file_in_browser"
+"ui.launch_process" = "actions.ui:launch_process"
+"ui.hotkey" = "actions.ui:hotkey"
+"ui.type_text" = "actions.ui:type_text"
+"ui.click" = "actions.ui:click"
+"ui.click_bbox" = "actions.ui:click_bbox"
+"http.fetch_url" = "actions.http_actions:fetch_url"
+"notify.send" = "actions.notify:send_notification"
+
+[tool.hatch.build.targets.wheel]
+packages = ["engine", "actions", "app", "decision", "plugins", "scripts"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-q --strict-markers"
+testpaths = ["tests"]
+markers = [
+    "integration: tests that exercise the full orchestrator and SQLite",
+    "slow: tests that are not part of the fast unit suite",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]

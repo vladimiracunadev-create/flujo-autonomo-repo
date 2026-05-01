@@ -1,3 +1,10 @@
+"""Validador de manifests, acciones y transiciones.
+
+Aplica:
+- JSON Schema (``schemas/manifest.schema.json``) si ``jsonschema`` está disponible.
+- Checks estructurales adicionales: acciones registradas, transitions resueltas,
+  start_step válido, allowed_actions consistente.
+"""
 from __future__ import annotations
 
 import json
@@ -9,6 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from engine.action_registry import ACTION_REGISTRY  # noqa: E402
+from engine.manifest_schema import validate_manifest_data  # noqa: E402
 
 
 def _load_json(path: Path) -> Dict[str, Any]:
@@ -20,30 +28,27 @@ def _validate_manifest(path: Path) -> List[str]:
     errors: List[str] = []
     manifest = _load_json(path)
     flow_label = path.parent.name
-    steps = manifest.get('steps')
 
-    if not manifest.get('id'):
-        errors.append(f'{flow_label}: falta id')
-    if not manifest.get('name'):
-        errors.append(f'{flow_label}: falta name')
-    if not isinstance(steps, list) or not steps:
-        errors.append(f'{flow_label}: steps debe ser una lista no vacia')
+    schema_errors = validate_manifest_data(manifest)
+    errors.extend(f'{flow_label}: {e}' for e in schema_errors)
+    if schema_errors:
         return errors
 
+    steps = manifest.get('steps') or []
     step_ids: List[str] = []
     known_actions = set(ACTION_REGISTRY.keys())
+    allowed = set(manifest.get('allowed_actions') or [])
 
     for index, step in enumerate(steps, start=1):
         step_id = step.get('id')
         action = step.get('action')
-        if not step_id:
-            errors.append(f'{flow_label}: paso #{index} no tiene id')
-            continue
         if step_id in step_ids:
             errors.append(f'{flow_label}: paso duplicado {step_id}')
         step_ids.append(step_id)
         if action not in known_actions:
-            errors.append(f'{flow_label}/{step_id}: accion no registrada {action!r}')
+            errors.append(f'{flow_label}/{step_id}: acción no registrada {action!r}')
+        if allowed and action not in allowed:
+            errors.append(f'{flow_label}/{step_id}: acción {action!r} no está en allowed_actions')
 
     valid_step_ids = set(step_ids)
     for step in steps:
