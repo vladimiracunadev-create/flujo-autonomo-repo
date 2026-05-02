@@ -252,6 +252,19 @@ table.steps td:last-child pre { max-height: 200px; overflow: auto; }
 
 .live-status { font-size: 12px; color: var(--muted); margin-top: 10px; min-height: 16px; }
 
+.kbd-hint { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); margin-left: auto; }
+kbd { display: inline-block; padding: 2px 7px; background: #f1f5f9; border: 1px solid #cbd5e1; border-bottom-width: 2px; border-radius: 5px; font-family: ui-monospace, monospace; font-size: 11px; color: #334155; }
+
+.modal-bg { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,.55); display: flex; align-items: center; justify-content: center; z-index: 9000; }
+.modal { background: white; border-radius: 16px; max-width: 540px; width: 90%; max-height: 86vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.modal-head h3 { margin: 0; font-size: 18px; }
+.modal-head button { background: transparent; border: none; font-size: 18px; cursor: pointer; color: var(--muted); padding: 4px 10px; }
+.modal-body { padding: 16px 20px; }
+.modal-body h4 { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.kbd-row { display: flex; align-items: center; gap: 12px; padding: 6px 0; font-size: 13px; }
+.kbd-row kbd { min-width: 70px; text-align: center; }
+
 .run-progress { background: #f8fafc; border-radius: 12px; padding: 12px; border: 1px solid var(--border); }
 .run-progress-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
 .run-progress-header a { font-size: 12px; }
@@ -352,14 +365,65 @@ async function pollStatus(runId, card, btn, flowId) {
     await new Promise(r => setTimeout(r, 700));
   }
 }
-async function runFlow(folder, btn) {
-  const card = btn.closest('.flow-card');
+function askUrlForFlow12() {
+  return new Promise(resolve => {
+    const html = `<div id="url-modal" class="modal-bg">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-head"><h3>🌐 ¿Qué página querés capturar?</h3>
+          <button onclick="document.getElementById('url-modal').remove();window._flow12Resolve&&window._flow12Resolve(null)">✕</button></div>
+        <div class="modal-body">
+          <p style="margin-top:0;color:var(--muted);font-size:13px">Pega una URL completa (https://...) o una ruta local relativa al workspace (data/web/control_page.html).</p>
+          <input id="url-input" type="text" placeholder="https://example.com  o  data/web/control_page.html" value="data/web/control_page.html"
+            style="width:100%" autofocus />
+          <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button class="ghost" onclick="document.getElementById('url-modal').remove();window._flow12Resolve&&window._flow12Resolve(null)">Cancelar</button>
+            <button class="primary" id="url-submit">Capturar</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+    const input = document.getElementById('url-input');
+    const submit = document.getElementById('url-submit');
+    window._flow12Resolve = (val) => { window._flow12Resolve = null; resolve(val); };
+    const accept = () => {
+      const v = (input.value || '').trim();
+      document.getElementById('url-modal').remove();
+      window._flow12Resolve(v || null);
+    };
+    submit.addEventListener('click', accept);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); accept(); }
+      if (e.key === 'Escape') { e.preventDefault(); document.getElementById('url-modal').remove(); window._flow12Resolve(null); }
+    });
+    setTimeout(() => input.focus(), 50);
+  });
+}
+async function runFlow(folder, btn, opts) {
+  opts = opts || {};
+  const card = btn ? btn.closest('.flow-card') : document.querySelector('.flow-card[data-folder="' + folder + '"]');
+  if (!card) return;
+  if (!btn) btn = card.querySelector('button.primary');
   const status = card.querySelector('.live-status');
+  // Caso especial flow 12: tomar la URL del input inline si existe;
+  // si vino por atajo (opts.fromShortcut) y no hay input visible, abrir modal.
+  let body = null;
+  if (folder === '12_screen_capture_browser') {
+    const inlineInput = card.querySelector('.flow12-url');
+    let url = inlineInput ? (inlineInput.value || '').trim() : '';
+    if (!url || opts.fromShortcut) {
+      url = await askUrlForFlow12();
+      if (!url) return;
+    }
+    body = JSON.stringify({ context_overrides: { target_url: url } });
+  }
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Iniciando…';
   status.innerHTML = '<span class="badge running"><span class="dot"></span>iniciando</span>';
   try {
-    const res = await fetch('/api/run/' + encodeURIComponent(folder), { method: 'POST' });
+    const opts = { method: 'POST' };
+    if (body) { opts.headers = {'Content-Type': 'application/json'}; opts.body = body; }
+    const res = await fetch('/api/run/' + encodeURIComponent(folder), opts);
     const data = await res.json();
     if (data.ok && data.run_id) {
       btn.innerHTML = '<span class="spinner"></span> En curso…';
@@ -386,6 +450,84 @@ function filterTable(inputId, tbodyId) {
 window.addEventListener('DOMContentLoaded', () => {
   const hash = (location.hash || '#run').replace('#', '');
   if (['run','schedule','history'].includes(hash)) showTab(hash);
+});
+
+// === Atajos de teclado ===
+// Alt+1..9, Alt+0 (=10), Alt+- (=11), Alt+= (=12) → ejecuta flow N
+// Alt+H → tab Histórico, Alt+P → tab Programadas, Alt+E → tab Ejecutar
+// Alt+M → /metrics/dashboard
+// ? o F1 → modal de ayuda
+const KEY_TO_INDEX = {
+  '1':0,'2':1,'3':2,'4':3,'5':4,'6':5,'7':6,'8':7,'9':8,
+  '0':9,'-':10,'=':11
+};
+function showShortcutsHelp() {
+  const existing = document.getElementById('shortcuts-modal');
+  if (existing) { existing.remove(); return; }
+  const cards = document.querySelectorAll('.flow-card');
+  const items = Array.from(cards).slice(0, 12).map((c, i) => {
+    const folder = c.getAttribute('data-folder') || '';
+    const name = c.querySelector('h3')?.textContent || folder;
+    const labels = ['Alt+1','Alt+2','Alt+3','Alt+4','Alt+5','Alt+6','Alt+7','Alt+8','Alt+9','Alt+0','Alt+-','Alt+='];
+    return `<div class="kbd-row"><kbd>${labels[i]}</kbd><span>${name}</span></div>`;
+  }).join('');
+  const html = `<div id="shortcuts-modal" class="modal-bg" onclick="this.remove()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-head"><h3>⌨️ Atajos de teclado</h3><button onclick="document.getElementById('shortcuts-modal').remove()">✕</button></div>
+      <div class="modal-body">
+        <h4>Ejecutar flow</h4>
+        ${items}
+        <h4 style="margin-top:14px">Navegación</h4>
+        <div class="kbd-row"><kbd>Alt+E</kbd><span>Tab Ejecutar</span></div>
+        <div class="kbd-row"><kbd>Alt+P</kbd><span>Tab Programadas</span></div>
+        <div class="kbd-row"><kbd>Alt+H</kbd><span>Tab Histórico</span></div>
+        <div class="kbd-row"><kbd>Alt+M</kbd><span>Dashboard de Métricas</span></div>
+        <div class="kbd-row"><kbd>?</kbd><span>Mostrar/ocultar esta ayuda</span></div>
+        <div class="kbd-row"><kbd>Esc</kbd><span>Cerrar este modal</span></div>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+document.addEventListener('keydown', e => {
+  // Modal close con Esc
+  if (e.key === 'Escape') {
+    const m = document.getElementById('shortcuts-modal');
+    if (m) { m.remove(); e.preventDefault(); return; }
+  }
+  // Help con ? o F1
+  if ((e.key === '?' && !e.ctrlKey && !e.metaKey) || e.key === 'F1') {
+    e.preventDefault();
+    showShortcutsHelp();
+    return;
+  }
+  // Solo procesamos Alt + tecla
+  if (!e.altKey || e.ctrlKey || e.metaKey) return;
+  // No interferir con inputs
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea') return;
+
+  // Alt+E/P/H/M = navegación
+  const navKey = e.key.toLowerCase();
+  if (navKey === 'e') { e.preventDefault(); showTab('run'); return; }
+  if (navKey === 'p') { e.preventDefault(); showTab('schedule'); return; }
+  if (navKey === 'h') { e.preventDefault(); showTab('history'); return; }
+  if (navKey === 'm') { e.preventDefault(); location.href = '/metrics/dashboard'; return; }
+
+  // Alt+1..9, Alt+0, Alt+-, Alt+= = ejecutar flow N
+  if (KEY_TO_INDEX.hasOwnProperty(e.key)) {
+    const idx = KEY_TO_INDEX[e.key];
+    const cards = document.querySelectorAll('.flow-card');
+    if (idx < cards.length) {
+      const card = cards[idx];
+      const folder = card.getAttribute('data-folder');
+      e.preventDefault();
+      showTab('run');
+      card.scrollIntoView({behavior: 'smooth', block: 'center'});
+      runFlow(folder, null, { fromShortcut: true });
+      showToast('▶ Atajo Alt+' + e.key + ' → flow ' + (idx + 1));
+    }
+  }
 });
 '''
 
@@ -437,17 +579,36 @@ def safe_json_loads(text: str | None):
         return text
 
 
-def _flow_card_run_tab(flow: dict, latest: dict | None) -> str:
+_SHORTCUT_LABELS = ['Alt+1','Alt+2','Alt+3','Alt+4','Alt+5','Alt+6','Alt+7','Alt+8','Alt+9','Alt+0','Alt+-','Alt+=']
+
+
+def _flow_card_run_tab(flow: dict, latest: dict | None, index: int) -> str:
     status_html = badge(latest['status']) + f' · <a href="/run/{flow["id"]}/{latest["run_id"]}">último run</a>' if latest else '<span class="muted">sin ejecuciones aún</span>'
+    shortcut = _SHORTCUT_LABELS[index] if index < len(_SHORTCUT_LABELS) else ''
+    shortcut_html = f'<span class="kbd-hint"><kbd>{shortcut}</kbd></span>' if shortcut else ''
+
+    # Caso especial: flow 12 lleva input inline para la URL a capturar
+    inline_input_html = ''
+    if flow['folder'] == '12_screen_capture_browser':
+        inline_input_html = '''
+      <div style="margin-top:10px">
+        <label style="font-size:12px;color:var(--muted);margin:0 0 4px 0">🌐 URL o ruta local a capturar</label>
+        <input class="flow12-url" type="text" placeholder="https://example.com  o  data/web/control_page.html"
+               value="data/web/control_page.html" style="font-size:13px" />
+      </div>
+        '''
+
     return f'''
     <div class="card flow-card" data-folder="{html.escape(flow['folder'])}">
       <div class="meta">
         <span>{html.escape(flow.get('family','general'))}</span>
         <span>{len(flow.get('steps',[]))} pasos</span>
+        {shortcut_html}
       </div>
       <h3>{html.escape(flow['name'])}</h3>
       <div class="muted">{html.escape(flow['description'] or '')}</div>
       <div class="meta"><span class="path">{html.escape(flow['folder'])}</span></div>
+      {inline_input_html}
       <div class="actions">
         <button class="primary" onclick="runFlow('{flow['folder']}', this)">Ejecutar</button>
         <a class="button ghost" href="/flow/{flow['folder']}">Detalle</a>
@@ -511,7 +672,7 @@ def render_home() -> bytes:
     for run in runs:
         runs_by_flow.setdefault(run['flow_id'], []).append(run)
 
-    run_cards = ''.join(_flow_card_run_tab(flow, (runs_by_flow.get(flow['id']) or [None])[0]) for flow in flows)
+    run_cards = ''.join(_flow_card_run_tab(flow, (runs_by_flow.get(flow['id']) or [None])[0], idx) for idx, flow in enumerate(flows))
     schedule_cards = ''.join(_flow_card_schedule_tab(flow, get_schedule(flow['folder'])) for flow in flows)
     history_rows = ''.join(_history_row(run) for run in runs) or '<tr><td colspan="6" class="empty">Sin corridas todavía. Ejecuta un flow para empezar.</td></tr>'
 
@@ -519,10 +680,11 @@ def render_home() -> bytes:
     total_runs = len(runs)
 
     body = f'''
-    <div class="tabs" role="tablist">
+    <div class="tabs" role="tablist" style="display:flex;align-items:center">
       <button class="tab-btn active" data-tab="run" onclick="showTab('run')">▶ Ejecutar <span class="count">{len(flows)}</span></button>
       <button class="tab-btn" data-tab="schedule" onclick="showTab('schedule')">⏰ Programadas <span class="count">{active_count}</span></button>
       <button class="tab-btn" data-tab="history" onclick="showTab('history')">📜 Histórico <span class="count">{total_runs}</span></button>
+      <button class="tab-btn" style="margin-left:auto" onclick="showShortcutsHelp()" title="Ver atajos de teclado">⌨️ <kbd style="margin-left:4px">?</kbd></button>
     </div>
 
     <div class="tab-pane active" data-tab="run">
@@ -902,10 +1064,21 @@ class AppHandler(BaseHTTPRequestHandler):
             flow = get_flow_by_folder(folder)
             if not flow:
                 return self._send_json({'ok': False, 'error': 'flow no encontrado'}, status=404)
+            # Lee overrides del body (JSON) si los hay
+            overrides: dict[str, Any] = {}
+            length = int(self.headers.get('Content-Length', '0') or '0')
+            if length > 0:
+                raw = self.rfile.read(length).decode('utf-8')
+                try:
+                    body = json.loads(raw)
+                    if isinstance(body, dict) and isinstance(body.get('context_overrides'), dict):
+                        overrides = body['context_overrides']
+                except json.JSONDecodeError:
+                    pass
             # Run async: instanciamos para reservar el run_id, lanzamos en thread,
             # y devolvemos al cliente inmediatamente para que pueda hacer polling.
             try:
-                orch = Orchestrator(Path(flow['flow_path']))
+                orch = Orchestrator(Path(flow['flow_path']), context_overrides=overrides or None)
                 # Persistimos sincrónicamente antes de lanzar el thread para
                 # garantizar que el polling vea el run desde el primer tick.
                 orch.state['status'] = 'running'

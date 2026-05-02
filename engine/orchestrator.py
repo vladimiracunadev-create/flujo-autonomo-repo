@@ -20,11 +20,18 @@ class FlowExecutionError(Exception):
 
 
 class Orchestrator:
-    def __init__(self, flow_dir: Path, context_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        flow_dir: Path,
+        context_path: Path | None = None,
+        context_overrides: dict[str, Any] | None = None,
+    ) -> None:
         init_db()
         self.flow_dir = flow_dir
         self.definition = FlowLoader.load_manifest(flow_dir)
         self.context = FlowLoader.load_context(flow_dir, context_path)
+        if context_overrides:
+            self.context = {**self.context, **context_overrides}
         self.policy = SandboxPolicy(
             allowed_actions=self.definition.allowed_actions,
             required_secrets=self.definition.required_secrets,
