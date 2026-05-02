@@ -222,13 +222,16 @@ jobs:
       - run: uv sync --extra dev --extra schema
       - name: Install pip-audit (pinned)
         run: uv pip install 'pip-audit==2.7.3'
-      - name: Run pip-audit
+      - name: Exportar deps bloqueadas (sin el paquete del repo)
+        # 'uv sync' instala el proyecto propio en modo editable; pip-audit
+        # lo trata como error porque no existe en PyPI. Solucion: exportar
+        # las dependencias resueltas a requirements.txt sin incluir el
+        # paquete del repo (--no-emit-project) y auditar ese archivo.
+        run: uv export --format requirements-txt --no-emit-project --no-hashes > /tmp/deps.txt
+      - name: Run pip-audit sobre deps reales
         run: |
-          # --skip-editable: el proyecto propio (flujo-autonomo) se instala
-          # en modo editable via 'uv sync' y no existe en PyPI. pip-audit
-          # debe auditar las dependencias, no el paquete del repo mismo.
           set +e
-          uv run pip-audit --strict --desc --skip-editable
+          uv run pip-audit -r /tmp/deps.txt --strict --desc
           rc=$?
           if [ "$rc" -ne 0 ] && [ "$ENFORCEMENT" = "hard" ]; then
             echo "::error::Vulnerabilidades en deps (modo hard, push/schedule)"
