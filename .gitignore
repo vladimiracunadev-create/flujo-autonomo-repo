@@ -19,3 +19,4 @@ output/**/*.json
 output/**/*.tmp
 secrets/*.json
 !secrets/.gitkeep
+.tmp*
