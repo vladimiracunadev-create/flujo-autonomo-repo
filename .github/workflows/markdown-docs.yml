@@ -1,0 +1,42 @@
+name: Markdown docs
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.md'
+
+jobs:
+  link-check:
+    name: Validar links internos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Verificar referencias internas
+        run: |
+          python - <<'PY'
+          import re, pathlib, sys
+          root = pathlib.Path('.')
+          missing = []
+          # busca [...](path) donde path es relativo (no http) y verifica existencia
+          link_re = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+          for md in root.rglob('*.md'):
+              if any(part in str(md) for part in ('node_modules', '.git', 'output', 'state', 'logs')):
+                  continue
+              text = md.read_text(encoding='utf-8', errors='ignore')
+              for m in link_re.finditer(text):
+                  href = m.group(2).split('#')[0].split(' ')[0]
+                  if not href or href.startswith(('http://', 'https://', 'mailto:', '#')):
+                      continue
+                  target = (md.parent / href).resolve()
+                  if not target.exists():
+                      missing.append(f"{md}:{m.start()}  → {href}")
+          if missing:
+              print("⚠️ Links rotos:")
+              for x in missing[:50]:
+                  print(f"  {x}")
+              sys.exit(1)
+          print("✅ Todos los links internos resuelven")
+          PY

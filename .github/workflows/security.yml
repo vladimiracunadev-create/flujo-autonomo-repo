@@ -1,0 +1,72 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'  # lunes 06:00 UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  codeql:
+    name: CodeQL Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+
+  detect-secrets:
+    name: detect-secrets scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install detect-secrets
+      - name: Scan repo
+        run: |
+          detect-secrets scan --baseline .secrets.baseline 2>/dev/null || true
+          detect-secrets scan \
+            --exclude-files '\.git/|\.venv/|node_modules/|\.tmp.*|output/|state/|logs/|db/|docs/manual_screenshots/' \
+            --exclude-lines '^\s*#|^\s*//|^\s*\*' \
+            > /tmp/scan_output.json
+          # Falla si encuentra secretos no esperados
+          python - <<'PY'
+          import json
+          with open('/tmp/scan_output.json') as f:
+              data = json.load(f)
+          results = data.get('results', {})
+          if results:
+              print('⚠️ Posibles secretos detectados:')
+              for fpath, items in results.items():
+                  for it in items:
+                      print(f"  {fpath}:{it.get('line_number')}  type={it.get('type')}")
+              raise SystemExit(1)
+          print('✅ Sin secretos expuestos')
+          PY
+
+  pip-audit:
+    name: pip-audit (vulnerabilidades en deps)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+      - run: uv python install 3.12
+      - run: uv sync --extra dev --extra schema
+      - run: uv pip install pip-audit
+      - name: Run pip-audit
+        run: uv run pip-audit --strict --desc
+        continue-on-error: true  # informativo: no bloquea CI mientras se calibra

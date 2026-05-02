@@ -28,7 +28,7 @@
 
 ### Caso 02 — captura del navegador headless
 
-![Captura del navegador headless](manual_screenshots/12_navegador.png)
+![Captura del navegador headless](manual_screenshots/02_navegador.png)
 
 > Esto es **solo el contenido HTML renderizado** de `data/web/control_page.html`: el `<h1>`, los párrafos, el border. **Sin barra de Windows, sin escritorio, sin Chrome visible**. Se renderizó dentro de Chromium headless de Playwright y se capturó solo el DOM.
 

@@ -1,0 +1,35 @@
+name: Dependency hygiene
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 4 * * 1'  # lunes 04:00 UTC
+
+jobs:
+  outdated:
+    name: Detectar dependencias desactualizadas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+      - run: uv python install 3.12
+      - run: uv sync --extra dev --extra schema
+      - name: pip list --outdated
+        run: uv run pip list --outdated --format json | tee /tmp/outdated.json
+      - name: Resumen
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          data = json.loads(pathlib.Path('/tmp/outdated.json').read_text())
+          if not data:
+              print("✅ Todas las dependencias al día")
+          else:
+              print(f"📦 {len(data)} paquete(s) con versión nueva disponible:")
+              for pkg in data:
+                  print(f"  - {pkg['name']}  {pkg['version']} → {pkg['latest_version']}")
+          PY
+        continue-on-error: true

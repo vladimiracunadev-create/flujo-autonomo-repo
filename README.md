@@ -116,12 +116,13 @@ flujo-validate
 
 | Caso | Familia | Propósito |
 | --- | --- | --- |
-| `📷 01_screen_capture_analyze` | pantalla | captura pantalla y genera análisis local |
+| `📷 01_screen_capture_analyze` | pantalla | captura escritorio (mss/Pillow) y genera análisis local |
 | `🌐 02_screen_capture_browser` | navegador | captura DOM con Playwright headless (sin escritorio) |
-| `📁 03_folder_inventory` | filesystem | inventario y estadísticas de carpeta |
+| `📁 03_folder_inventory` | filesystem | inventario y estadísticas de carpeta — input inline + selector con `Alt+3` |
 | `📄 04_document_drop_pipeline` | documentos | pipeline de entrada documental |
 | `🖥️ 05_system_healthcheck` | sistema | snapshot y reglas de salud del equipo |
 | `⚙️ 06_process_watchdog` | sistema | observación de procesos por CPU/memoria |
+| `📋 07_browser_form_filler` | navegador | Playwright + form de 10 campos · 100 seeds sin repetir |
 
 ---
 

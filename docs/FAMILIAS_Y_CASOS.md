@@ -37,6 +37,7 @@ La documentación usa dos niveles:
 | 04 | 📄 [document_drop_pipeline](../flows/04_document_drop_pipeline/README.md) | documentos | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | Solo lee texto plano |
 | 05 | 🖥️ [system_healthcheck](../flows/05_system_healthcheck/README.md) | sistema | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | psutil. **Más rápido (~0.7s)** |
 | 06 | ⚙️ [process_watchdog](../flows/06_process_watchdog/README.md) | sistema | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | Algunos procesos requieren admin en Windows |
+| 07 | 📋 [browser_form_filler](../flows/07_browser_form_filler/README.md) | navegador | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | Playwright + form 10 campos + 100 seeds sin repetir |
 
 Leyenda: ✅ funciona · ❌ NO requerido · ⚠️ requerido condicionalmente · 🟢🟡🔴 nivel de riesgo.
 
@@ -52,6 +53,7 @@ Leyenda: ✅ funciona · ❌ NO requerido · ⚠️ requerido condicionalmente �
 | 📁 Necesitas auditar archivos | **03** folder_inventory |
 | 📥 Procesas documentos en una carpeta | **04** document_drop_pipeline |
 | ⚙️ Diagnosticar procesos pesados | **06** process_watchdog |
+| 📋 Llenado automatizado de formularios web | **07** browser_form_filler (Playwright + 100 seeds) |
 
 ---
 
