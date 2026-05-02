@@ -122,7 +122,6 @@ flujo-validate
 | `📄 04_document_drop_pipeline` | documentos | pipeline de entrada documental |
 | `🖥️ 05_system_healthcheck` | sistema | snapshot y reglas de salud del equipo |
 | `⚙️ 06_process_watchdog` | sistema | observación de procesos por CPU/memoria |
-| `🖱️ 08_ui_macro_recovery` | escritorio | macro mínima de recuperación con hotkey |
 
 ---
 

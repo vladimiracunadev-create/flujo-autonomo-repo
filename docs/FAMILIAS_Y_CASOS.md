@@ -37,7 +37,6 @@ La documentación usa dos niveles:
 | 04 | 📄 [document_drop_pipeline](../flows/04_document_drop_pipeline/README.md) | documentos | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | Solo lee texto plano |
 | 05 | 🖥️ [system_healthcheck](../flows/05_system_healthcheck/README.md) | sistema | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | psutil. **Más rápido (~0.7s)** |
 | 06 | ⚙️ [process_watchdog](../flows/06_process_watchdog/README.md) | sistema | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | Algunos procesos requieren admin en Windows |
-| 08 | 🖱️ [ui_macro_recovery](../flows/08_ui_macro_recovery/README.md) | escritorio | ✅ | ⚠️ X11 | ⚠️ accesibilidad | ❌ | ❌ | ❌ | ✅ | Envía hotkey real |
 
 Leyenda: ✅ funciona · ❌ NO requerido · ⚠️ requerido condicionalmente · 🟢🟡🔴 nivel de riesgo.
 
@@ -53,7 +52,6 @@ Leyenda: ✅ funciona · ❌ NO requerido · ⚠️ requerido condicionalmente �
 | 📁 Necesitas auditar archivos | **03** folder_inventory |
 | 📥 Procesas documentos en una carpeta | **04** document_drop_pipeline |
 | ⚙️ Diagnosticar procesos pesados | **06** process_watchdog |
-| 🆘 Macro de recuperación con hotkey | **08** ui_macro_recovery |
 
 ---
 
