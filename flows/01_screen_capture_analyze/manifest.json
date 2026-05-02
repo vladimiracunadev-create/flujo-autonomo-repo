@@ -2,7 +2,7 @@
   "id": "screen_capture_analyze",
   "name": "Captura y análisis local de pantalla",
   "family": "pantalla",
-  "description": "Captura la pantalla, ejecuta un analizador local y deja un reporte físico.",
+  "description": "Toma una captura PNG del monitor primario (1920×1080 típico) usando mss, calcula brillo medio y RGB promedio con un analizador local, y deja un reporte JSON con la imagen + estadísticas. Útil para evidencia visual auditable. ~0.6s. Genera 2 archivos en output/.",
   "steps": [
     {
       "id": "capture_screen",

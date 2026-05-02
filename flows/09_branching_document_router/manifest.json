@@ -2,7 +2,7 @@
   "id": "branching_document_router",
   "name": "Router documental con branching",
   "family": "documentos",
-  "description": "Evalúa si hay documentos en entrada y bifurca la ejecución hacia una ruta de procesamiento o una ruta vacía.",
+  "description": "Demostración canónica de transitions con condiciones: escanea data/dropbox/inbox, decide ruta. Si total_files > 0 → 4 pasos de procesamiento (clasifica, resume, reporta archivos). Si vacío → 1 paso de reporte vacío. La rama no tomada queda como NOT_TAKEN en la UI. ~0.3s. Plantilla para pipelines documentales con bifurcación.",
   "steps": [
     {
       "id": "scan_input",

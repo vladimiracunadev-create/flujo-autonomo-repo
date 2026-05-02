@@ -2,7 +2,7 @@
   "id": "document_drop_pipeline",
   "name": "Pipeline documental de entrada",
   "family": "documentos",
-  "description": "Escanea un buzón documental, clasifica archivos y genera un resumen legible.",
+  "description": "Lee una carpeta tipo dropbox, clasifica archivos por extensión y genera previews de hasta 10 archivos de texto compatibles (.txt .md .log .csv .json) con los primeros 500 chars de cada uno. ~50ms. Solo formatos de texto plano: NO procesa PDF ni Word. Útil para inspeccionar lotes de logs o notas operativas.",
   "steps": [
     {
       "id": "scan_dropbox",

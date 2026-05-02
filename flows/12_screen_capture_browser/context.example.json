@@ -1,0 +1,7 @@
+{
+  "target_url": "data/web/control_page.html",
+  "full_page": true,
+  "viewport_width": 1280,
+  "viewport_height": 800,
+  "wait_seconds": 1
+}

@@ -2,7 +2,7 @@
   "id": "folder_inventory",
   "name": "Inventario de carpeta",
   "family": "filesystem",
-  "description": "Lista una carpeta configurable y genera inventario + estadística simple por extensión.",
+  "description": "Lista archivos de una carpeta (configurable vía path_override), calcula total de bytes, distribución por extensión y archivo más grande. NO recursivo — solo el primer nivel. ~30ms. El flow más rápido y portátil del repo: cero dependencias externas, ideal para auditar contenido de una carpeta antes de procesarla.",
   "steps": [
     {
       "id": "scan_folder",

@@ -2,7 +2,7 @@
   "id": "screen_watchdog_rules",
   "name": "Watchdog visual por reglas",
   "family": "pantalla",
-  "description": "Captura la pantalla, la analiza y toma una decisión declarativa basada en reglas locales.",
+  "description": "Captura pantalla, mide luminosidad agregada y aplica reglas declarativas: si la pantalla está oscura → alerta, si está clara → ok, en otro caso → estable. Detecta sesiones bloqueadas, monitores apagados o ventanas cerradas. ~0.5s. Reporte con captura + decisión + regla matcheada.",
   "steps": [
     {
       "id": "capture_screen",

@@ -2,7 +2,7 @@
   "id": "screen_tri_mode_operator",
   "name": "Operador visual tri-modo (OCR / visión / híbrido)",
   "family": "pantalla",
-  "description": "Usa una imagen existente o captura pantalla, analiza en modo OCR, visión o híbrido, decide click o recuperación y deja evidencia completa.",
+  "description": "Caso visual más completo. Acepta una imagen pre-existente (image_override) o captura nueva. Analiza el target en 3 modos: OCR puro (Tesseract), visión multimodal (mock/OpenAI/Ollama) o híbrido con prioridad configurable. Si detecta el objetivo → click_bbox; si no → fallback_bbox o hotkey de recuperación. Soporta dry_run para validar sin clics reales. Deja diagnostics y effective_config completos.",
   "steps": [
     {
       "id": "use_existing_image",

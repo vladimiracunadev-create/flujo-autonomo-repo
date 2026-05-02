@@ -94,6 +94,7 @@ _BUILT_IN_ACTIONS: dict[str, str] = {
     'ui.click_bbox': 'actions.ui:click_bbox',
     'http.fetch_url': 'actions.http_actions:fetch_url',
     'notify.send': 'actions.notify:send_notification',
+    'browser.capture_page': 'actions.browser_capture:capture_page',
 }
 
 

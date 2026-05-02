@@ -2,7 +2,7 @@
   "id": "screen_ocr_click_recovery",
   "name": "OCR visual + click o recuperación",
   "family": "pantalla",
-  "description": "Captura la pantalla, busca un texto por OCR y hace click en su bounding box. Si falla, intenta una recuperación por hotkey y reporta todo.",
+  "description": "Captura pantalla, ejecuta OCR con Tesseract para encontrar el texto query_text en la imagen, calcula coordenadas del bounding box y hace CLICK REAL del mouse en su centro. Si OCR falla o no encuentra el texto, envía hotkey de recuperación (ESC por defecto). Captura post-acción. Requiere Tesseract instalado + pyautogui. Click absoluto: si la ventana se mueve, falla.",
   "steps": [
     {
       "id": "capture_screen",

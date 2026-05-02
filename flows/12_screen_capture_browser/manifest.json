@@ -1,0 +1,22 @@
+{
+  "id": "screen_capture_browser",
+  "name": "Captura del navegador (Playwright headless)",
+  "family": "navegador",
+  "description": "Usa Playwright + Chromium headless para capturar SOLO el contenido renderizado de una URL o archivo HTML local — no captura el escritorio. Genera un PNG de la página completa (toda la altura, no solo el viewport) con dimensiones reales del DOM. Diferencia clave con el flow 01: el 01 fotografía Windows; este fotografía la web. ~2-4s. Repo open-source: github.com/microsoft/playwright-python",
+  "steps": [
+    {
+      "id": "capture_browser_page",
+      "action": "browser.capture_page",
+      "params": {
+        "target": "{{ target_url }}",
+        "output_path": "output/screenshots/browser_page_{now}.png",
+        "full_page": "{{ full_page }}",
+        "viewport_width": "{{ viewport_width }}",
+        "viewport_height": "{{ viewport_height }}",
+        "wait_seconds": "{{ wait_seconds }}"
+      },
+      "save_as": "capture",
+      "retries": 1
+    }
+  ]
+}

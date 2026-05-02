@@ -2,7 +2,7 @@
   "id": "process_watchdog",
   "name": "Watchdog de procesos",
   "family": "sistema",
-  "description": "Extrae procesos principales y marca alertas por CPU o memoria.",
+  "description": "Lista los 10 procesos top ordenados por consumo de RAM (configurable a CPU) con PID, nombre y MB usados. Marca alertas para los que pasan 150MB o 70% CPU. NO mata procesos — solo los reporta. ~1s. Útil para diagnosticar al vuelo qué tiene saturado el equipo. En Windows requiere admin para procesos del sistema.",
   "steps": [
     {"id": "top_processes", "action": "system.top_processes", "params": {"limit": 10, "sort_by": "memory"}, "save_as": "top"},
     {

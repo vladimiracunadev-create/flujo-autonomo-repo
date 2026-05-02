@@ -63,6 +63,9 @@ def _run_status_payload(run_id: str) -> dict[str, Any]:
     is_running = run['status'] == 'running'
     rendered: list[dict[str, Any]] = []
     found_running = False
+    # Cuando el flow ya terminó, los pasos sin record son "rama no tomada"
+    # (skipped), no "pendientes" — pending solo aplica a flows aún corriendo.
+    fallback_status = 'pending' if is_running else 'not_taken'
     for ms in manifest_steps:
         sid = ms.get('id')
         if not sid:
@@ -89,7 +92,7 @@ def _run_status_payload(run_id: str) -> dict[str, Any]:
             rendered.append({
                 'step_id': sid,
                 'action': ms.get('action', ''),
-                'status': 'pending',
+                'status': fallback_status,
                 'attempt': None,
                 'duration_seconds': None,
             })
@@ -209,8 +212,8 @@ th { background: #f8fafc; font-weight: 600; color: var(--muted); font-size: 12px
 tbody tr:hover { background: #f8fafc; }
 tbody tr:last-child td { border-bottom: none; }
 
-.path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); }
-pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 12px; overflow: auto; font-size: 12px; line-height: 1.5; }
+.path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); word-break: break-all; }
+pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 12px; overflow: auto; font-size: 12px; line-height: 1.5; max-width: 100%; white-space: pre-wrap; word-break: break-word; }
 
 input[type=text], input[type=number], textarea, select {
   font-family: inherit; font-size: 14px; padding: 9px 12px;
@@ -237,6 +240,11 @@ label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); 
 .thumb .label { padding: 8px 10px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); background: white; word-break: break-all; }
 
 .two-col { display: grid; grid-template-columns: 1.1fr .9fr; gap: 18px; }
+.two-col > div { min-width: 0; }
+table { table-layout: auto; }
+table td, table th { word-break: break-word; }
+table.steps td:last-child { max-width: 320px; }
+table.steps td:last-child pre { max-height: 200px; overflow: auto; }
 @media (max-width: 960px) { .two-col { grid-template-columns: 1fr; } }
 
 .spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
@@ -247,8 +255,10 @@ label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); 
 .run-progress { background: #f8fafc; border-radius: 12px; padding: 12px; border: 1px solid var(--border); }
 .run-progress-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
 .run-progress-header a { font-size: 12px; }
-.step-list { display: flex; flex-direction: column; gap: 4px; }
-.step-row { display: grid; grid-template-columns: 22px 1fr auto auto auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 8px; background: white; border: 1px solid var(--border); font-size: 12px; }
+.step-list { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+.step-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; background: white; border: 1px solid var(--border); font-size: 12px; min-width: 0; }
+.step-row .step-meta { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.step-row .step-meta > * { white-space: nowrap; }
 .step-row .step-icon { text-align: center; font-weight: 600; font-size: 14px; color: var(--muted); }
 .step-row .step-name { font-weight: 600; color: var(--text); }
 .step-row .step-action { font-size: 11px; }
@@ -264,6 +274,9 @@ label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); 
 .step-row.step-running .step-status { background: var(--running-soft); color: var(--running); }
 .step-row.step-skipped { background: #f8fafc; opacity: 0.7; }
 .step-row.step-skipped .step-icon { color: var(--muted); }
+.step-row.step-not_taken { background: #f8fafc; opacity: 0.55; border-style: dashed; }
+.step-row.step-not_taken .step-icon { color: var(--muted); }
+.step-row.step-not_taken .step-status { background: #e2e8f0; color: var(--muted); }
 .step-row.step-pending { opacity: 0.55; }
 .step-error { margin-top: 8px; padding: 8px 10px; background: var(--danger-soft); color: var(--danger); border-radius: 8px; font-size: 12px; }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, .25); } 50% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); } }
@@ -286,6 +299,7 @@ function statusIcon(s) {
   if (s === 'success' || s === 'completed') return '✓';
   if (s === 'failed') return '✕';
   if (s === 'skipped') return '⏭';
+  if (s === 'not_taken') return '⊘';
   if (s === 'running') return '⏳';
   return '○';
 }
@@ -293,13 +307,11 @@ function renderProgress(payload) {
   const steps = payload.steps || [];
   const lines = steps.map(s => {
     const icon = statusIcon(s.status);
-    const dur = s.duration_seconds != null ? ` <span class="muted">${Number(s.duration_seconds).toFixed(2)}s</span>` : '';
+    const dur = s.duration_seconds != null ? `<span class="muted">${Number(s.duration_seconds).toFixed(2)}s</span>` : '';
     return `<div class="step-row step-${s.status}">
       <span class="step-icon">${icon}</span>
-      <span class="step-name">${s.step_id}</span>
-      <span class="step-action path">${s.action}</span>
-      <span class="step-status">${s.status}</span>
-      ${dur}
+      <span class="step-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><strong>${s.step_id}</strong> <span class="path" style="margin-left:6px">${s.action}</span></span>
+      <span class="step-meta"><span class="step-status">${s.status}</span> ${dur}</span>
     </div>`;
   }).join('');
   return `<div class="step-list">${lines}</div>`;
@@ -688,7 +700,7 @@ def render_run_detail(flow_id: str, run_id: str) -> bytes:
     outputs = safe_json_loads(run.get('outputs_json')) or []
     error = safe_json_loads(run.get('error_json'))
     step_rows = ''.join(
-        f"<tr><td>{index}</td><td>{html.escape(step['step_id'])}</td><td><span class='path'>{html.escape(step['action'])}</span></td><td>{badge(step['status'])}</td><td>{step['attempt']}</td><td>{round(step.get('duration_seconds') or 0, 3)}s</td><td><pre>{html.escape(str(safe_json_loads(step.get('result_json')) or step.get('error_text') or '')[:600])}</pre></td></tr>"
+        f"<tr><td>{index}</td><td><strong>{html.escape(step['step_id'])}</strong></td><td><span class='path'>{html.escape(step['action'])}</span></td><td>{badge(step['status'])}</td><td>{step['attempt']}</td><td>{round(step.get('duration_seconds') or 0, 3)}s</td><td><pre>{html.escape(str(safe_json_loads(step.get('result_json')) or step.get('error_text') or '')[:600])}</pre></td></tr>"
         for index, step in enumerate(steps, start=1)
     ) or '<tr><td colspan="7" class="empty">Sin pasos</td></tr>'
     output_thumbs = ''.join(_output_thumb(item) for item in outputs if isinstance(item, dict) and item.get('path')) or '<div class="empty"><h4>Sin salidas físicas</h4><div>Este run no generó archivos en disco.</div></div>'
@@ -714,7 +726,7 @@ def render_run_detail(flow_id: str, run_id: str) -> bytes:
       <div>
         <div class="card">
           <h3>Acciones ejecutadas</h3>
-          <table>
+          <table class="steps">
             <thead><tr><th>#</th><th>Paso</th><th>Acción</th><th>Estado</th><th>Intento</th><th>Duración</th><th>Resultado</th></tr></thead>
             <tbody>{step_rows}</tbody>
           </table>

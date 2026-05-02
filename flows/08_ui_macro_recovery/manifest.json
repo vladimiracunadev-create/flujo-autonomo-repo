@@ -2,7 +2,7 @@
   "id": "ui_macro_recovery",
   "name": "Macro de recuperación de UI",
   "family": "escritorio",
-  "description": "Secuencia operativa base para recuperación mínima de UI y captura posterior de evidencia.",
+  "description": "Envía la tecla ESC con pyautogui al programa que tenga foco en Windows, espera 1s, captura pantalla post-acción y deja evidencia. ~1.5s. CUIDADO: las teclas afectan REALMENTE a la ventana activa — cierra diálogos modales, dropdowns abiertos o autocompletado. Útil como fallback de macros: no correr sin saber qué tendrá foco. Requiere pyautogui.",
   "steps": [
     {"id": "send_recovery_hotkey", "action": "ui.hotkey", "params": {"keys": ["esc"]}, "save_as": "hotkey_result"},
     {"id": "wait_after_hotkey", "action": "system.wait_seconds", "params": {"seconds": 1}, "save_as": "delay"},

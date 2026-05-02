@@ -2,7 +2,7 @@
   "id": "system_healthcheck",
   "name": "Healthcheck del sistema",
   "family": "sistema",
-  "description": "Genera snapshot del sistema y clasifica su estado por umbrales básicos.",
+  "description": "Captura métricas reales del PC con psutil: CPU %, memoria % y MB usados, disco % y GB usados, plataforma (Windows/Linux/macOS) y versión Python. Aplica umbrales: memoria > 85% o CPU > 90% → alerta, sino ok. ~0.7s. Sin sesión gráfica ni internet. Ideal para programar cada N minutos y detectar saturación.",
   "steps": [
     {"id": "take_snapshot", "action": "system.snapshot_system", "params": {}, "save_as": "snapshot"},
     {
