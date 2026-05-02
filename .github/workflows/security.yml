@@ -227,10 +227,10 @@ jobs:
           # Desinstalamos el paquete propio (instalado en modo editable por
           # 'uv sync') antes de auditar: no existe en PyPI y con --strict
           # pip-audit lo trataría como fallo aun usando --skip-editable.
-          # Auditamos solo dependencias reales.
+          # 'uv run --no-sync' evita que uv lo reinstale al ejecutar pip-audit.
           uv pip uninstall flujo-autonomo || true
           set +e
-          uv run pip-audit --strict --desc --skip-editable
+          uv run --no-sync pip-audit --strict --desc --skip-editable
           rc=$?
           if [ "$rc" -ne 0 ] && [ "$ENFORCEMENT" = "hard" ]; then
             echo "::error::Vulnerabilidades en deps (modo hard, push/schedule)"
