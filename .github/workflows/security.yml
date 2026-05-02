@@ -224,9 +224,11 @@ jobs:
         run: uv pip install 'pip-audit==2.7.3'
       - name: Run pip-audit
         run: |
-          # --skip-editable: el proyecto propio (flujo-autonomo) se instala
-          # en modo editable via 'uv sync' y no existe en PyPI. pip-audit
-          # debe auditar las dependencias, no el paquete del repo mismo.
+          # Desinstalamos el paquete propio (instalado en modo editable por
+          # 'uv sync') antes de auditar: no existe en PyPI y con --strict
+          # pip-audit lo trataría como fallo aun usando --skip-editable.
+          # Auditamos solo dependencias reales.
+          uv pip uninstall flujo-autonomo || true
           set +e
           uv run pip-audit --strict --desc --skip-editable
           rc=$?
