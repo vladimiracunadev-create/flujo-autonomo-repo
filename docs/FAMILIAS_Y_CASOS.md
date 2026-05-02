@@ -37,11 +37,7 @@ La documentación usa dos niveles:
 | 04 | 📄 [document_drop_pipeline](../flows/04_document_drop_pipeline/README.md) | documentos | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | Solo lee texto plano |
 | 05 | 🖥️ [system_healthcheck](../flows/05_system_healthcheck/README.md) | sistema | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | psutil. **Más rápido (~0.7s)** |
 | 06 | ⚙️ [process_watchdog](../flows/06_process_watchdog/README.md) | sistema | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | Algunos procesos requieren admin en Windows |
-| 07 | 🌐 [browser_assisted_capture](../flows/07_browser_assisted_capture/README.md) | navegador | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | Abre navegador por defecto |
 | 08 | 🖱️ [ui_macro_recovery](../flows/08_ui_macro_recovery/README.md) | escritorio | ✅ | ⚠️ X11 | ⚠️ accesibilidad | ❌ | ❌ | ❌ | ✅ | Envía hotkey real |
-| 09 | 🔀 [branching_document_router](../flows/09_branching_document_router/README.md) | documentos | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | Demuestra `transitions` |
-| 10 | 🔍 [screen_ocr_click_recovery](../flows/10_screen_ocr_click_recovery/README.md) | pantalla | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | Click real basado en OCR |
-| 11 | 🎯 [screen_tri_mode_operator](../flows/11_screen_tri_mode_operator/README.md) | pantalla | ✅ | ✅ | ✅ | ✅ * | ⚠️ si vision externa | ⚠️ si modo OCR/hybrid | ⚠️ si dry_run=false | * con `image_override` + `ui_dry_run=true` corre headless |
 
 Leyenda: ✅ funciona · ❌ NO requerido · ⚠️ requerido condicionalmente · 🟢🟡🔴 nivel de riesgo.
 
@@ -53,10 +49,10 @@ Leyenda: ✅ funciona · ❌ NO requerido · ⚠️ requerido condicionalmente �
 | --- | --- |
 | 🆕 Recién instalando, validando que el motor anda | **05** healthcheck — el más rápido y seguro |
 | 🧪 Probando captura de pantalla en este equipo | **01** screen_capture_analyze con `analyzer=mock` |
+| 🌐 Capturar página web headless (sin escritorio) | **02** screen_capture_browser (Playwright) |
 | 📁 Necesitas auditar archivos | **03** folder_inventory |
-| 📥 Procesas documentos en una carpeta | **04** document_drop_pipeline o **09** con branching |
-| 🔍 Quieres OCR en imágenes | **10** screen_ocr_click_recovery (requiere Tesseract) |
-| 🎯 Caso visual avanzado con visión multimodal | **11** screen_tri_mode_operator |
+| 📥 Procesas documentos en una carpeta | **04** document_drop_pipeline |
+| ⚙️ Diagnosticar procesos pesados | **06** process_watchdog |
 | 🆘 Macro de recuperación con hotkey | **08** ui_macro_recovery |
 
 ---

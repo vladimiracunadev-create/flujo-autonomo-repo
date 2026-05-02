@@ -122,11 +122,7 @@ flujo-validate
 | `📄 04_document_drop_pipeline` | documentos | pipeline de entrada documental |
 | `🖥️ 05_system_healthcheck` | sistema | snapshot y reglas de salud del equipo |
 | `⚙️ 06_process_watchdog` | sistema | observación de procesos por CPU/memoria |
-| `🌐 07_browser_assisted_capture` | navegador | abre página local y captura evidencia |
-| `🖱️ 08_ui_macro_recovery` | escritorio | macro mínima de recuperación de UI |
-| `🔀 09_branching_document_router` | documentos | branching real según presencia de archivos |
-| `🔍 10_screen_ocr_click_recovery` | pantalla | OCR + click visual o recuperación |
-| `🎯 11_screen_tri_mode_operator` | pantalla | OCR, visión o híbrido con dry-run |
+| `🖱️ 08_ui_macro_recovery` | escritorio | macro mínima de recuperación con hotkey |
 
 ---
 
@@ -237,7 +233,9 @@ Detalle en [docs/VALIDACION.md](docs/VALIDACION.md).
 
 ## 👁️ Modos visuales
 
-El caso `🎯 11_screen_tri_mode_operator` soporta:
+_Sección retirada: el caso visual avanzado tri-modo (OCR/visión/híbrido) fue eliminado de esta versión por baja relación valor/mantenimiento._
+
+<!-- El caso `🎯 11_screen_tri_mode_operator` soportaba:
 
 - **OCR puro** (`analysis_mode = "ocr"`): extracción local con Tesseract.
 - **Visión multimodal** (`analysis_mode = "vision"`): proveedor `mock`, `openai_compatible` u `ollama`.
@@ -248,6 +246,7 @@ Para pruebas sin GUI real:
 - 🖼️ `image_override` apunta a una imagen existente.
 - 🚫 `ui_dry_run = true` evita clicks reales.
 - ⏭️ `skip_after_capture = true` evita captura posterior.
+-->
 
 ---
 

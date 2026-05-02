@@ -28,32 +28,14 @@ def main() -> None:
     sync_flows(list_flows())
 
     set_flow_config('03_folder_inventory', {'path_override': 'data/inbox'})
-    set_flow_config('11_screen_tri_mode_operator', {
-        'analysis_mode': 'vision',
-        'query_text': 'Guardar',
-        'vision_provider': 'mock',
-        'vision_model': '',
-        'vision_endpoint': '',
-        'vision_prompt': '',
-        'vision_api_key_env': 'OPENAI_API_KEY',
-        'prefer_source': 'ocr',
-        'fallback_bbox': {'left': 35, 'top': 35, 'width': 230, 'height': 85},
-        'recovery_hotkey': ['esc'],
-        'ui_dry_run': True,
-        'skip_after_capture': True,
-        'image_override': 'tests/assets/sample_ui.png',
-    })
 
     state_a = Orchestrator(root / 'flows' / '03_folder_inventory').run()
     state_b = Orchestrator(root / 'flows' / '05_system_healthcheck').run()
-    state_c = Orchestrator(root / 'flows' / '09_branching_document_router').run()
-    state_d = Orchestrator(root / 'flows' / '11_screen_tri_mode_operator').run()
+    state_c = Orchestrator(root / 'flows' / '06_process_watchdog').run()
 
     assert state_a['status'] == 'completed'
     assert state_b['status'] == 'completed'
     assert state_c['status'] == 'completed'
-    assert state_d['status'] == 'completed'
-    assert state_d['context']['analysis']['mode'] == 'vision'
     assert DB_PATH.exists()
 
     set_schedule('05_system_healthcheck', enabled=True, interval_seconds=1)
