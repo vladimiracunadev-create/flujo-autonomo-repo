@@ -3,21 +3,22 @@
 
 # 🤖 Flujo Autónomo
 
-### Orquestador local de procesos para PC
+### Control local de tareas y acciones efectivas sobre Windows
 
-**Flows declarativos · Panel 3-tabs · Sandbox por flow · Scheduler con cron · OCR / visión**
+**Abre ventanas reales · Llena formularios · Captura escritorio y DOM · Audita el equipo · Todo declarativo en JSON**
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-persistencia-003B57?logo=sqlite&logoColor=white)
+![Windows](https://img.shields.io/badge/target-Windows-0078D4?logo=windows&logoColor=white)
+![Playwright](https://img.shields.io/badge/Playwright-headless%20%2B%20visible-2EAD33?logo=playwright&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-historial-003B57?logo=sqlite&logoColor=white)
 ![uv](https://img.shields.io/badge/packaging-uv-DE5FE9?logo=astral&logoColor=white)
-![pytest](https://img.shields.io/badge/tests-82%20pytest-3DA639?logo=pytest&logoColor=white)
-![Prometheus](https://img.shields.io/badge/metrics-Prometheus-E6522C?logo=prometheus&logoColor=white)
+![pytest](https://img.shields.io/badge/tests-79%20pytest-3DA639?logo=pytest&logoColor=white)
 ![Local First](https://img.shields.io/badge/local--first-sí-2D7A66)
 
 [![CI](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/ci.yml)
+[![Security](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/security.yml)
 [![License](https://img.shields.io/badge/license-MIT-15803d.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.0-0f766e)](CHANGELOG.md)
-[![Estado](https://img.shields.io/badge/estado-versión%20operativa-blue)]()
+[![Version](https://img.shields.io/badge/version-0.4.0-0f766e)](CHANGELOG.md)
 
 </div>
 
@@ -25,43 +26,55 @@
 
 ---
 
-## 🧭 Resumen Ejecutivo
+## 🎯 ¿Para qué existe este repositorio?
 
-Flujo Autónomo resuelve un problema concreto: muchas tareas operativas en un PC son **repetitivas, frágiles y opacas** — capturar pantalla, mover archivos, vigilar procesos, levantar reportes, automatizar UIs. Este producto las modela como **flows declarativos en JSON**, los ejecuta desde un panel local en `127.0.0.1`, deja **trazabilidad completa** en SQLite + snapshots + eventos JSONL, y los puede dejar corriendo programados con cron.
+Para **ejecutar acciones efectivas sobre el escritorio Windows** desde un panel local en `127.0.0.1`. La idea no es solo "ejecutar scripts en orden" — sino **abrir ventanas reales, interactuar con ellas, capturar evidencia y dejar trazabilidad**.
 
-El recorrido del operador cubre tres zonas claras dentro de un único panel:
-
-```text
-▶ Ejecutar  →  ⏰ Programadas  →  📜 Histórico
-```
-
-- **▶ Ejecutar**: cards por flow con un clic — corre en tiempo real, muestra estado live, link al detalle.
-- **⏰ Programadas**: las mismas acciones con scheduler intervalo o cron, lock contra ejecuciones paralelas.
-- **📜 Histórico**: tabla buscable de todas las corridas con duración, badge de estado y detalle con capturas inline.
+El objetivo a largo plazo: tener control declarativo sobre tareas operativas reales del PC — abrir aplicaciones, llenar formularios, automatizar pipelines de datos visuales, escalar de auditoría pasiva a operación activa.
 
 > [!IMPORTANT]
-> La lectura correcta del repo hoy es: **producto operativo de un solo usuario en su PC**. La trazabilidad, el sandbox por flow y la suite de tests son reales; pero todavía no hay RBAC multiusuario, ni aislamiento OS-level por proceso, ni instalador binario. La prioridad sigue siendo claridad y reproducibilidad antes que cobertura empresarial.
+> **Filtro de aceptación**: los casos que solo emiten JSON con datos del sistema (inventarios, healthcheck) son **utilidades básicas** — entran en el mínimo. Los casos que **abren ventanas, interactúan con DOM real, hacen capturas con datos contextualizados** son los que justifican el producto. La dirección de evolución apunta a más robustez visual e interactiva, no más reportes pasivos.
 
 ---
 
-## 📊 Estado del Producto · v0.3.0
+## 🗂️ Catálogo actual · 7 flows operativos
 
-| Capa | Estado | Qué demuestra hoy | Evidencia principal |
-| --- | --- | --- | --- |
-| Panel 3-tabs | 🟢 Operativo | Ejecutar / programar / revisar todo desde un mismo localhost | [app/server.py](app/server.py) |
-| Motor declarativo | 🟢 Operativo | Manifest → pasos → transitions → persistencia incremental | [engine/orchestrator.py](engine/orchestrator.py) |
-| Sandbox por flow | 🟢 Operativo | allowed_actions · required_secrets · allowed_paths · max_runtime | [engine/sandbox.py](engine/sandbox.py) |
-| Scheduler + cron | 🟢 Operativo | Cron 5 campos sin deps + lock SQLite contra paralelas | [engine/scheduler.py](engine/scheduler.py), [engine/cron.py](engine/cron.py) |
-| Métricas | 🟢 Operativo | `/metrics` Prometheus + `/api/metrics` JSON + dashboard HTML | [engine/metrics.py](engine/metrics.py) |
-| Webhooks IN | 🟢 Operativo | `POST /api/hook/<folder>` con token `FLUJO_WEBHOOK_TOKEN` | [app/server.py](app/server.py) |
-| Notificaciones OUT | 🟢 Operativo | Acción `notify.send` con backends log/file/webhook | [actions/notify.py](actions/notify.py) |
-| Plugins de terceros | 🟢 Operativo | Entry-points `flujo.actions` (importlib.metadata) | [engine/action_registry.py](engine/action_registry.py) |
-| Casos ejecutables | 🟢 11 reales | Filesystem, sistema, pantalla, OCR, visión, branching | [flows/](flows) |
-| Suite pytest | 🟢 82 verde | Unitarios + integración + panel HTTP live | [tests/](tests) |
-| CI | 🟢 Operativo | uv · matriz Linux/Windows × Python 3.10–3.12 · ruff · smoke | [.github/workflows/ci.yml](.github/workflows/ci.yml) |
-| Empaquetado | 🟢 Operativo | `pyproject.toml` con extras `dev`/`schema` y CLI scripts | [pyproject.toml](pyproject.toml) |
-| Multiusuario / RBAC | 🔴 No | Diseño actual asume un operador local | — |
-| Aislamiento OS-level | 🟡 Parcial | Sandbox a nivel orquestador, no a nivel proceso | [docs/SEGURIDAD.md](docs/SEGURIDAD.md) |
+Clasificados por su nivel de interacción con el sistema:
+
+### 🟢 Operaciones avanzadas (abren ventana real)
+
+| Caso | Familia | Qué hace efectivamente |
+| --- | --- | --- |
+| **`📷 01_screen_capture_analyze`** | pantalla | Captura el escritorio Windows completo (mss → PNG 1920×1080) y analiza brillo/RGB. |
+| **`🌐 02_screen_capture_browser`** | navegador | Lanza Chromium headless con Playwright y captura el DOM renderizado de una URL configurable (input inline + atajo `Alt+2`). |
+| **`📋 07_browser_form_filler`** | navegador | **Operación más avanzada del repo**: lanza Chromium *visible*, navega al formulario de 10 campos `data/web/form_demo.html`, elige uno de 100 registros del seed sin repetir, los rellena uno por uno con `slow_mo` (observable a ojo), submit, valida JS y guarda payload. |
+
+### 🟡 Utilidades sobre el equipo (solo lectura · solo JSON)
+
+| Caso | Familia | Qué hace |
+| --- | --- | --- |
+| `📁 03_folder_inventory` | filesystem | Lista archivos de una carpeta (input inline + atajo `Alt+3` con modal selector). |
+| `📄 04_document_drop_pipeline` | documentos | Resume archivos `.txt`/`.md`/`.log`/`.csv`/`.json` de una carpeta. |
+| `🖥️ 05_system_healthcheck` | sistema | Snapshot CPU/RAM/disco con `psutil` + reglas de alerta. |
+| `⚙️ 06_process_watchdog` | sistema | Top 10 procesos con alertas por umbral de RAM/CPU. |
+
+> Los flows 03–06 son **utilidades correctas pero pobres en valor**. La inversión próxima va a flows del bloque 🟢 (más interacción real, no más telemetría pasiva).
+
+---
+
+## 🚀 El panel en 3 tabs
+
+```text
+▶ Ejecutar         ⏰ Programadas         📜 Histórico
+```
+
+- **▶ Ejecutar** — cards por flow. Click ejecuta en tiempo real con progreso paso-a-paso. Atajos `Alt+1..Alt+7`.
+- **⏰ Programadas** — scheduler con intervalo o cron de 5 campos. Lock SQLite contra ejecuciones paralelas.
+- **📜 Histórico** — todas las corridas con filtro, badge de estado, duración y link al detalle.
+
+**Detalle de cada run** muestra la imagen capturada en hero, un **resumen inteligente legible** (no JSON crudo), pasos clickeables con resultado completo en modal, y el contexto/eventos en `<details>` colapsables.
+
+**Dashboard de cada flow** (`/flow/<folder>`) tiene **grid visual de las últimas 12 corridas** con preview real de cada una (PNG si hay, claves del JSON si no).
 
 ---
 
@@ -71,6 +84,7 @@ El recorrido del operador cubre tres zonas claras dentro de un único panel:
 
 ```bash
 uv sync --extra dev --extra schema
+python -m playwright install chromium    # necesario para flows 02 y 07
 uv run python -m app.server
 ```
 
@@ -78,89 +92,99 @@ uv run python -m app.server
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate     # Windows: .venv\Scripts\activate
+.venv\Scripts\activate
 pip install -e ".[dev,schema]"
+python -m playwright install chromium
 python -m app.server
 ```
 
-Abre el panel:
+Abrí: <http://127.0.0.1:8787>
 
-```text
-http://127.0.0.1:8787
-```
-
-CLI tras instalar el paquete:
+CLI tras instalar:
 
 ```bash
-flujo list
-flujo run flows/05_system_healthcheck
-flujo scheduler --interval 2
-flujo-validate
+flujo list                                     # lista flows
+flujo run flows/05_system_healthcheck          # corre uno
+flujo scheduler --interval 2                   # scheduler en bucle
+flujo-validate                                 # JSON Schema + acciones + transitions
 ```
 
 ---
 
 ## 🎯 Demo de 5 minutos
 
-1. 🟢 Levanta el panel (`uv run python -m app.server`).
-2. ▶ Tab **Ejecutar**: hacé clic en `Healthcheck del sistema` — verás el badge `running` y al cabo de medio segundo un `completed` con link al detalle.
-3. 📜 Tab **Histórico**: abre el detalle del run anterior — ves los 3 pasos, sus duraciones, los datos capturados y el reporte JSON generado en `output/reports/`.
-4. ⏰ Tab **Programadas**: en `Inventario de carpeta` activa el scheduler con cron `*/15 * * * *` — guarda y cambia a Histórico, en 15 minutos verás corridas automáticas.
-5. 📊 Click en **Métricas**: KPI cards con totales, top acciones lentas y por flow.
-6. 🛡️ Abre [flows/05_system_healthcheck/manifest.json](flows/05_system_healthcheck/manifest.json) y agrega `"allowed_actions": ["system.snapshot_system","rules.evaluate","filesystem.write_json"]`. Ejecuta — verás cómo el sandbox sólo permite esas 3.
-7. 🔌 Define `FLUJO_WEBHOOK_TOKEN` y dispara el flow vía `curl -X POST -H "X-Flujo-Token: $TOKEN" http://127.0.0.1:8787/api/hook/05_system_healthcheck`.
-
----
-
-## 🗂️ Catálogo de Casos
-
-| Caso | Familia | Propósito |
-| --- | --- | --- |
-| `📷 01_screen_capture_analyze` | pantalla | captura escritorio (mss/Pillow) y genera análisis local |
-| `🌐 02_screen_capture_browser` | navegador | captura DOM con Playwright headless (sin escritorio) |
-| `📁 03_folder_inventory` | filesystem | inventario y estadísticas de carpeta — input inline + selector con `Alt+3` |
-| `📄 04_document_drop_pipeline` | documentos | pipeline de entrada documental |
-| `🖥️ 05_system_healthcheck` | sistema | snapshot y reglas de salud del equipo |
-| `⚙️ 06_process_watchdog` | sistema | observación de procesos por CPU/memoria |
-| `📋 07_browser_form_filler` | navegador | Playwright + form de 10 campos · 100 seeds sin repetir |
+1. 🟢 Levantá el panel.
+2. 📋 Tab **Ejecutar** → atajo `Alt+7` → flow `browser_form_filler`. **Mirá**: se abre una ventana de Chromium, navega al form, **rellena los 10 campos uno por uno** con `slow_mo=250ms` (observable), submit, validación JS y cierra. Output JSON en `output/reports/form_submission_*.json` con el record elegido + tracking.
+3. 🌐 Volvé al panel → atajo `Alt+2` → modal pide URL → escribe `https://github.com` o tu intranet → captura PNG real del DOM (sin pestañas en tu Chrome).
+4. 📜 Tab **Histórico** → click el último run del flow 07 → verás los 10 datos enviados como **lista legible** (no JSON crudo) + el `submitted_payload` que la página renderizó.
+5. ⏰ Tab **Programadas** → activá el flow 05 con cron `*/15 * * * *` → en 15 min ya tenés telemetría histórica del PC en SQLite.
 
 ---
 
 ## 🏗️ Arquitectura en una frase
 
-Un `manifest.json` declara pasos y política de sandbox; el loader los convierte en definiciones; el orquestador resuelve condiciones, templates y transiciones aplicando la política; las acciones se cargan bajo demanda (built-in o entry-points externos); cada corrida persiste estado, eventos, salidas y métricas.
+Un `manifest.json` declara pasos y política de sandbox; el orquestador resuelve condiciones, templates y transiciones aplicando la política; las acciones se cargan bajo demanda; cada corrida persiste estado, eventos, salidas y métricas.
 
 ```mermaid
 flowchart LR
     Flow["📋 flows/*/manifest.json"] --> Loader["FlowLoader"]
     Loader --> Orchestrator["⚙️ Orchestrator"]
     Schema["🧪 schemas/manifest.schema.json"] --> Validator["validate_project.py"]
-    Config["⚙️ configs/*.json"] --> Orchestrator
-    Secrets["🔐 secrets + env"] --> Orchestrator
+    Config["⚙️ configs/*.json + context_overrides API"] --> Orchestrator
     Sandbox["🛡️ SandboxPolicy"] --> Orchestrator
-    Orchestrator --> Registry["LazyActionRegistry"]
-    Registry --> Builtin["📦 actions/*"]
-    Registry --> External["🔌 entry_points"]
+    Orchestrator --> Registry["LazyActionRegistry · 29 acciones"]
+    Registry --> Builtin["📦 actions/* (mss · psutil · playwright · pyautogui)"]
     Orchestrator --> DB["💾 db/runs.db"]
-    Orchestrator --> State["📂 state/*.json"]
-    Orchestrator --> Logs["📜 logs/*.jsonl"]
-    Orchestrator --> Output["🖼️ output/*"]
-    Panel["🖥️ app/server.py"] --> Orchestrator
-    Panel --> Metrics["📊 engine/metrics.py"]
-    Scheduler["⏰ SchedulerService + cron"] --> Orchestrator
-    Webhook["🪝 POST /api/hook"] --> Orchestrator
+    Orchestrator --> Output["🖼️ output/screenshots + reports"]
+    Panel["🖥️ app/server.py · 3 tabs · atajos Alt+N"] --> Orchestrator
+    Scheduler["⏰ cron + lock SQLite"] --> Orchestrator
+    Webhook["🪝 POST /api/hook (token)"] --> Orchestrator
 ```
+
+---
+
+## 📊 Estado del producto · v0.4.0
+
+| Capa | Estado | Evidencia |
+| --- | --- | --- |
+| Panel 3-tabs + atajos teclado | 🟢 Operativo | [app/server.py](app/server.py) |
+| Motor declarativo | 🟢 Operativo | [engine/orchestrator.py](engine/orchestrator.py) |
+| Sandbox por flow | 🟢 Operativo | [engine/sandbox.py](engine/sandbox.py), [docs/SEGURIDAD.md](docs/SEGURIDAD.md) |
+| Scheduler con cron + lock | 🟢 Operativo | [engine/scheduler.py](engine/scheduler.py) |
+| Override de context vía API | 🟢 Operativo | `POST /api/run/<folder>` con body `{"context_overrides": {...}}` |
+| Métricas Prometheus + dashboard | 🟢 Operativo | [engine/metrics.py](engine/metrics.py) |
+| Webhooks IN | 🟢 Operativo | `POST /api/hook/<folder>` con `FLUJO_WEBHOOK_TOKEN` |
+| Plugins de terceros (entry-points) | 🟢 Operativo | [engine/action_registry.py](engine/action_registry.py) |
+| **Casos avanzados (ventana real)** | 🟢 3 flows · 01 02 07 | [flows/](flows) |
+| **Casos utilitarios (solo JSON)** | 🟡 4 flows · 03 04 05 06 | mínimo aceptable, no foco |
+| Suite pytest | 🟢 79 verde | [tests/](tests) |
+| CI: lint + tests + smoke + security + docs | 🟢 Operativo | [.github/workflows/](.github/workflows) |
+| Multiusuario / RBAC | 🔴 No | un operador local |
+| Aislamiento OS-level | 🟡 Sandbox declarativo, no proceso | [docs/SEGURIDAD.md](docs/SEGURIDAD.md) |
+
+---
+
+## ⌨️ Atajos del panel
+
+| Tecla | Acción |
+| --- | --- |
+| `Alt+1`…`Alt+7` | Ejecutar flow N |
+| `Alt+E` / `Alt+P` / `Alt+H` | Tab Ejecutar / Programadas / Histórico |
+| `Alt+M` | Dashboard de Métricas |
+| `?` o `F1` | Modal de ayuda |
+| `Esc` | Cerrar modal |
+
+Los flows 02, 03 y 07 abren un **modal especial pidiendo input** cuando se disparan por atajo (URL, ruta de carpeta, etc).
 
 ---
 
 ## 🛡️ Seguridad operativa
 
-Los flows pueden leer/escribir archivos, abrir URLs, capturar pantalla, controlar UI y lanzar procesos. La política se declara directamente en el manifest:
+Cada flow declara su política directamente:
 
 ```json
 {
   "id": "auditoria_segura",
-  "name": "Auditoría",
   "allowed_actions": ["filesystem.list_directory", "filesystem.write_json"],
   "allowed_paths": ["data/auditorias", "output/reports"],
   "required_secrets": ["AUDIT_API_KEY"],
@@ -169,84 +193,92 @@ Los flows pueden leer/escribir archivos, abrir URLs, capturar pantalla, controla
 }
 ```
 
-El orquestador rechaza acciones fuera de `allowed_actions`, valida que los paths estén bajo `allowed_paths`, exige los `required_secrets` antes de empezar y aborta si la corrida supera `max_runtime_seconds`. Detalle en [docs/SEGURIDAD.md](docs/SEGURIDAD.md).
+El motor rechaza acciones fuera del allowlist, valida prefijos de paths y exige los secrets antes de iniciar. Detalle en [docs/SEGURIDAD.md](docs/SEGURIDAD.md). Política de reporte de vulnerabilidades en [SECURITY.md](SECURITY.md).
 
 > [!WARNING]
-> El webhook entrante (`POST /api/hook/<folder>`) está **deshabilitado por defecto**: sólo acepta peticiones cuando `FLUJO_WEBHOOK_TOKEN` está definido y el header `X-Flujo-Token` coincide. Si lo expones más allá de localhost, ponlo detrás de un reverse proxy con TLS.
+> El webhook entrante está **deshabilitado por defecto** y requiere `FLUJO_WEBHOOK_TOKEN`. Si lo expones más allá de localhost, ponelo detrás de un reverse proxy con TLS.
 
 ---
 
-## ✅ Validación
-
-Tres niveles, de barato a caro:
+## ✅ Validación local antes de pushear
 
 ```bash
-python scripts/validate_project.py   # JSON Schema + acciones + transitions
-pytest                                # 82 tests unitarios + integración
-python scripts/smoke_test.py          # corrida real de flows representativos
+uv run pytest                          # 79 tests
+uv run ruff check .                    # lint
+uv run python scripts/validate_project.py   # JSON Schema + acciones
 ```
 
-Detalle en [docs/VALIDACION.md](docs/VALIDACION.md).
+Las tres deben pasar. CI corre lo mismo + `security.yml` (CodeQL, detect-secrets, pip-audit) + `markdown-docs.yml` (links rotos) + `dependency-hygiene.yml`.
 
 ---
 
 ## 📚 Documentación
 
-| Documento | Rol |
+### Operación
+
+| Documento | Para qué |
 | --- | --- |
-| [📐 ARQUITECTURA.md](docs/ARQUITECTURA.md) | diseño técnico y flujo de ejecución |
-| [🗂️ FAMILIAS_Y_CASOS.md](docs/FAMILIAS_Y_CASOS.md) | taxonomía y catálogo de flows |
-| [📖 OPERACION.md](docs/OPERACION.md) | guía de uso diario por CLI, panel, scheduler y webhook |
-| [✏️ CREAR_FLUJOS.md](docs/CREAR_FLUJOS.md) | contrato para crear nuevos manifests |
-| [🛡️ SEGURIDAD.md](docs/SEGURIDAD.md) | sandbox por flow, secretos y modelo de confianza |
-| [✅ VALIDACION.md](docs/VALIDACION.md) | JSON Schema, pytest, CI y criterios de aceptación |
-| [📊 METRICAS.md](docs/METRICAS.md) | endpoints, dashboard y formato Prometheus |
-| [🔌 INTEGRACIONES.md](docs/INTEGRACIONES.md) | webhook de entrada y notificaciones de salida |
-| [🧩 EXTENSION.md](docs/EXTENSION.md) | publicar acciones de terceros vía entry-points |
-| [🐛 TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | fallas comunes y diagnóstico |
-| [👁️ MODOS_DE_ANALISIS_VISUAL.md](docs/MODOS_DE_ANALISIS_VISUAL.md) | OCR, visión e híbrido |
-| [📝 CHANGELOG.md](CHANGELOG.md) | historial de versiones |
+| [📖 docs/MANUAL_USUARIO.md](docs/MANUAL_USUARIO.md) | Manual con casos resueltos en Windows real |
+| [📕 RUNBOOK.md](RUNBOOK.md) | Procedimientos del día a día (reset, locks, queries) |
+| [📊 docs/METRICAS.md](docs/METRICAS.md) | Endpoints, dashboard y formato Prometheus |
+| [🔌 docs/INTEGRACIONES.md](docs/INTEGRACIONES.md) | Webhooks IN y notificaciones OUT |
+
+### Diseño
+
+| Documento | Para qué |
+| --- | --- |
+| [📐 docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) | Diseño técnico y flujo de ejecución |
+| [🗂️ docs/FAMILIAS_Y_CASOS.md](docs/FAMILIAS_Y_CASOS.md) | Catálogo y matriz de compatibilidad |
+| [✏️ docs/CREAR_FLUJOS.md](docs/CREAR_FLUJOS.md) | Contrato para escribir un flow nuevo |
+| [🛡️ docs/SEGURIDAD.md](docs/SEGURIDAD.md) | Sandbox, secretos, modelo de confianza |
+| [✅ docs/VALIDACION.md](docs/VALIDACION.md) | JSON Schema, pytest, CI, criterios |
+| [🧩 docs/EXTENSION.md](docs/EXTENSION.md) | Publicar acciones de terceros vía entry-points |
+| [🐛 docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Fallas comunes y diagnóstico |
+
+### Proyecto
+
+| Documento | Para qué |
+| --- | --- |
+| [📝 CHANGELOG.md](CHANGELOG.md) | Historial de versiones (Keep a Changelog) |
+| [🤝 CONTRIBUTING.md](CONTRIBUTING.md) | Cómo contribuir |
+| [🛡️ SECURITY.md](SECURITY.md) | Política de reporte de vulnerabilidades |
+| [📜 LICENSE](LICENSE) | MIT |
 
 ---
 
-## 🗃️ Estructura
+## 🗃️ Estructura del repo
 
 ```text
 /app          🖥️  Panel local + API JSON
-/actions      📦 Acciones ejecutables por los flows
-/engine       ⚙️  Motor: loader, orquestador, sandbox, scheduler, cron, métricas, secretos
-/plugins      🧩 Analizadores extensibles
-/flows        📋 Casos ejecutables
-/configs      ⚙️  Configuración por flow (no secretos)
+/actions      📦 mss · psutil · playwright · pyautogui · webbrowser · ...
+/engine       ⚙️  Motor: orquestador · sandbox · scheduler · cron · métricas · secretos
+/flows        📋 7 casos operativos
+/data
+  /web        🌐 HTML local (form_demo · control_page)
+  /seeds      🧬 100 registros del flow 07 + tracking de usados
+  /inbox      📥 Carpeta de ejemplo para flow 03/04
+/configs      ⚙️  Contexto persistido por flow
 /secrets      🔐 Bóveda local (ignorada por git)
 /schemas      🧪 JSON Schema del manifest
-/db           💾 Base SQLite local
-/logs         📜 Eventos técnicos JSONL
-/state        📂 Snapshots completos de corrida
-/output       🖼️  Reportes y capturas generadas
-/tests        🧪 Suite pytest
-/docs         📚 Documentación técnica y operativa
-/.github      🤖 Workflows de CI
+/db           💾 SQLite (runs.db)
+/output       🖼️  reports/ + screenshots/
+/state /logs  📂 Snapshots y eventos JSONL
+/docs         📚 Documentación
+/.github      🤖 CI · Security · Dependency hygiene · Markdown · Dependabot
 ```
 
 ---
 
-## 👁️ Modos visuales
+## 🛣️ Próximos pasos
 
-_Sección retirada: el caso visual avanzado tri-modo (OCR/visión/híbrido) fue eliminado de esta versión por baja relación valor/mantenimiento._
+La dirección clara: **más operaciones avanzadas reales sobre Windows**, menos telemetría pasiva.
 
-<!-- El caso `🎯 11_screen_tri_mode_operator` soportaba:
+- 🪟 Casos que abran aplicaciones Windows nativas (Excel, Word, PDF readers) y operen sobre ellas.
+- 🔁 Pipelines visuales con múltiples ventanas coordinadas.
+- 🎯 Validación de resultados contra criterios reales del DOM/sistema.
+- 🧬 Datasets seed más ricos por caso (hoy solo el 07 tiene 100 registros).
 
-- **OCR puro** (`analysis_mode = "ocr"`): extracción local con Tesseract.
-- **Visión multimodal** (`analysis_mode = "vision"`): proveedor `mock`, `openai_compatible` u `ollama`.
-- **Híbrido** (`analysis_mode = "hybrid"`): combina OCR y visión con prioridad configurable.
-
-Para pruebas sin GUI real:
-
-- 🖼️ `image_override` apunta a una imagen existente.
-- 🚫 `ui_dry_run = true` evita clicks reales.
-- ⏭️ `skip_after_capture = true` evita captura posterior.
--->
+Si lo que aporta valor es solo "leer JSON del sistema y dejar reporte", probablemente exista una herramienta nativa más simple. La justificación de este producto es la **interacción declarativa con la sesión Windows**.
 
 ---
 
@@ -254,8 +286,10 @@ Para pruebas sin GUI real:
 
 **[⬆ Volver arriba](#-flujo-autónomo)** ·
 **[📝 Changelog](CHANGELOG.md)** ·
+**[🤝 Contribuir](CONTRIBUTING.md)** ·
+**[🛡️ Reportar vulnerabilidad](SECURITY.md)** ·
 **[🐛 Issues](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/issues)**
 
-Hecho con 🐍 Python · 💾 SQLite · 🛡️ Sandbox por flow · ☕ Café local
+Hecho con 🐍 Python · 🪟 sobre Windows · 💾 SQLite · 🛡️ Sandbox por flow
 
 </div>
