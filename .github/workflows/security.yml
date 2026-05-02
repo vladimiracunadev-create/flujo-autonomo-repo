@@ -50,6 +50,12 @@ jobs:
         uses: github/codeql-action/analyze@5c8a8a642e79153f5d047b10ec1cba1d1cc65699  # v3.28.10
         with:
           category: "/language:python"
+        # Tolera que el upload de SARIF falle cuando "Code Scanning" no está
+        # habilitado en Settings → Code security. El análisis igual corre y
+        # los hallazgos se ven en el log del job. Para activar la pestaña
+        # Security/Code scanning del repo: Settings → Code security and
+        # analysis → Code scanning → Enable.
+        continue-on-error: true
 
   # ── 2. detect-secrets con baseline obligatorio + scan de historial ────────
   detect-secrets:
@@ -150,57 +156,50 @@ jobs:
           echo "✅ Sin zero-width sospechosos"
       - name: Detectar patrones de ofuscación / ejecución dinámica
         run: |
+          # Reglas Python-especificas: solo *.py reales. Excluimos workflows
+          # del CI y tests cuyo proposito es detectar/documentar estos patrones
+          # (los .md docs/CHANGELOG/SECURITY ya quedan fuera al limitar a *.py).
           status=0
-          # .github/ y tests legítimos contienen estos patrones como reglas — excluirlos
-          EXCLUDE='\.github/|tests/.*detect.*|docs/'
-          # base64 + exec/eval combinados (típico dropper)
-          if git ls-files -z | grep -zEv "$EXCLUDE" \
-             | xargs -0 grep -Pl 'exec\s*\(\s*(base64|codecs\.decode)' 2>/dev/null; then
-            echo "::error::Patrón base64+exec detectado"
-            status=1
-          fi
-          # eval con argumento no-literal (no es una constante string)
-          if git ls-files -z '*.py' | grep -zEv "$EXCLUDE" \
-             | xargs -0 grep -Pl 'eval\s*\([^"\x27]' 2>/dev/null; then
-            echo "::warning::eval() con argumento dinámico — revisar"
-            status=1
-          fi
-          # os.system con concatenación de strings (command injection clásico)
-          if git ls-files -z '*.py' | grep -zEv "$EXCLUDE" \
-             | xargs -0 grep -Pl 'os\.system\s*\(.*\+' 2>/dev/null; then
-            echo "::error::os.system con concatenación detectado"
-            status=1
-          fi
-          # subprocess con shell=True + string formattado
-          if git ls-files -z '*.py' | grep -zEv "$EXCLUDE" \
-             | xargs -0 grep -Pl 'subprocess\.[a-z_]+\([^)]*shell\s*=\s*True[^)]*(\+|f["\x27]|\.format\()' 2>/dev/null; then
-            echo "::warning::subprocess shell=True con interpolación — revisar"
-            status=1
-          fi
-          # pickle.loads sobre datos no controlados (RCE)
-          if git ls-files -z '*.py' | grep -zEv "$EXCLUDE|tests/" \
-             | xargs -0 grep -Pl 'pickle\.loads?\(' 2>/dev/null; then
-            echo "::warning::pickle.loads detectado — verificar origen del dato"
-            status=1
-          fi
-          # __import__ dinámico
-          if git ls-files -z '*.py' | grep -zEv "$EXCLUDE" \
-             | xargs -0 grep -Pl '__import__\s*\([^"\x27]' 2>/dev/null; then
-            echo "::warning::__import__ dinámico detectado"
-            status=1
-          fi
-          if [[ "$status" -ne 0 ]]; then exit "$status"; fi
-          echo "✅ Sin patrones de ofuscación"
+          # mapfile -d '' lee correctamente nombres separados por null byte
+          # (las variables shell no preservan \0, pero arrays de bash si).
+          mapfile -d '' files < <(git ls-files -z '*.py' | grep -zEv '\.github/|tests/.*detect.*' || true)
+
+          run_check() {
+            local label="$1" pattern="$2" severity="$3"
+            if [ "${#files[@]}" -eq 0 ]; then return 0; fi
+            local hits
+            hits=$(grep -Pl "$pattern" "${files[@]}" 2>/dev/null || true)
+            if [ -n "$hits" ]; then
+              echo "::${severity}::${label}"
+              printf '  %s\n' $hits
+              status=1
+            fi
+          }
+
+          run_check "Patron base64+exec detectado"                   'exec\s*\(\s*(base64|codecs\.decode)' error
+          run_check "eval() con argumento dinamico - revisar"        'eval\s*\([^"\x27]'                   warning
+          run_check "os.system con concatenacion detectado"          'os\.system\s*\(.*\+'                 error
+          run_check "subprocess shell=True con interpolacion"        'subprocess\.[a-z_]+\([^)]*shell\s*=\s*True[^)]*(\+|f["\x27]|\.format\()' warning
+          run_check "pickle.loads detectado - verificar origen"      'pickle\.loads?\('                    warning
+          run_check "__import__ dinamico detectado"                  '__import__\s*\([^"\x27]'             warning
+
+          if [ "$status" -ne 0 ]; then exit 1; fi
+          echo "OK: sin patrones de ofuscacion"
       - name: Detectar URLs de webhook/exfiltración hardcodeadas
         run: |
-          # URLs de servicios típicamente usados para C2 / exfil
-          # (excluyendo .github/ y configs legítimas)
-          if git ls-files -z | grep -zEv '\.github/|docs/|tests/' \
-             | xargs -0 grep -PlE '(discord\.com/api/webhooks|hooks\.slack\.com|webhook\.site|requestbin\.com|burpcollaborator\.net|ngrok\.io|pastebin\.com/raw)' 2>/dev/null; then
-            echo "::error::URL de webhook/exfil sospechosa hardcodeada"
+          # Solo escaneamos archivos de codigo reales. Los .md de doc listan
+          # estos dominios como IOCs y disparan falsos positivos.
+          # Tipos cubiertos: Python, JS/TS, JSON, TOML, YAML (excluyendo
+          # workflows del CI que documentan los mismos patrones).
+          MATCHES=$(git ls-files -z '*.py' '*.js' '*.ts' '*.tsx' '*.jsx' '*.json' '*.toml' '*.yaml' '*.yml' \
+            | grep -zEv '\.github/workflows/|tests/.*detect.*' \
+            | xargs -0 grep -lE '(discord\.com/api/webhooks|hooks\.slack\.com|webhook\.site|requestbin\.com|burpcollaborator\.net|ngrok\.io|pastebin\.com/raw)' 2>/dev/null || true)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::URL de webhook/exfil sospechosa hardcodeada en:"
+            printf '%s\n' "$MATCHES"
             exit 1
           fi
-          echo "✅ Sin URLs de exfil sospechosas"
+          echo "OK: sin URLs de exfil sospechosas"
 
   # ── 4. pip-audit con enforcement progresivo ───────────────────────────────
   pip-audit:
