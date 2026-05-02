@@ -171,7 +171,7 @@ jobs:
             hits=$(grep -Pl "$pattern" "${files[@]}" 2>/dev/null || true)
             if [ -n "$hits" ]; then
               echo "::${severity}::${label}"
-              echo "$hits" | sed 's/^/  /'
+              echo "  ${hits//$'\n'/$'\n  '}"
               status=1
             fi
           }
