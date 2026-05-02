@@ -67,8 +67,8 @@ Este repo ejecuta acciones de teclado, mouse y captura de pantalla en el equipo 
 
 1. **Pin a SHA**, no a tag, en toda acción third-party. Los tags (`@v4`, `@main`) son movibles y vulnerables a incidentes tipo `tj-actions/changed-files` (mar-2025), `reviewdog` (sep-2024), `Codecov bash uploader` (2021).
 2. Cada `uses:` lleva la versión humana como comentario (`# v4.2.2`) para que dependabot pueda actualizar y para que el revisor sepa qué está aprobando.
-3. **Allowlist única**: `astral-sh/setup-uv` puede usar tag mientras dependabot fija el primer SHA. Cualquier otra excepción debe documentarse aquí.
-4. Workflow `workflow-security.yml` falla el CI si aparece una acción third-party sin SHA.
+3. **Allowlist vacía**. Cualquier excepción debe documentarse aquí y reflejarse en la env var `ALLOWLIST` del job `pin-check` ([workflow-security.yml](.github/workflows/workflow-security.yml)).
+4. Workflow `workflow-security.yml` parsea cada `*.yml` con PyYAML y falla el CI si aparece una acción third-party con `@ref` que no sea un SHA de 40 chars hex.
 
 ### Permisos
 
@@ -103,7 +103,7 @@ actions/checkout                      11bd71901bbe5b1630ceea73d27597364c9af683  
 actions/setup-python                  a26af69be951a213d495a4c3e4e4022e16d87065  # v5.4.0
 github/codeql-action/init             5c8a8a642e79153f5d047b10ec1cba1d1cc65699  # v3.28.10
 github/codeql-action/analyze          5c8a8a642e79153f5d047b10ec1cba1d1cc65699  # v3.28.10
-astral-sh/setup-uv                    @v3 (allowlisted, pendiente SHA)
+astral-sh/setup-uv                    caf0cab7a618c569241d31dcd442f54681755d39  # v3.2.4
 ```
 
 ### Si ves algo raro en un PR

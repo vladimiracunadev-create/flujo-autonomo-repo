@@ -13,7 +13,7 @@ Motivación: este repo ejecuta acciones de teclado/mouse/captura sobre el escrit
   - `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683` (v4.2.2)
   - `actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065` (v5.4.0)
   - `github/codeql-action/{init,analyze}@5c8a8a642e79153f5d047b10ec1cba1d1cc65699` (v3.28.10)
-  - `astral-sh/setup-uv@v3` queda allowlisted hasta el primer SHA de dependabot.
+  - `astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39` (v3.2.4) — allowlist queda **vacía**.
 - **`persist-credentials: false`** en todos los `actions/checkout` — el `GITHUB_TOKEN` ya no queda expuesto a steps posteriores.
 - **Permisos mínimos** por workflow (`contents: read`) y solo se elevan en CodeQL (`security-events: write`, `actions: read`).
 - **Concurrencia** con `cancel-in-progress: true` en CI/security/deps/markdown — reduce ventana de runs huérfanos con tokens vivos.
