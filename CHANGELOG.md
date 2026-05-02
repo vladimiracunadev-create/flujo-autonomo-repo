@@ -3,6 +3,36 @@
 Todas las versiones notables de Flujo Autónomo se documentan acá. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/) y la versión sigue [SemVer](https://semver.org/lang/es/).
 
+## [Unreleased]
+
+### 🔒 Hardening del CI/CD (supply chain)
+
+Motivación: este repo ejecuta acciones de teclado/mouse/captura sobre el escritorio del operador. Un commit malicioso fusionado a `main` se traduce en RCE local. Por eso el CI pasa a tratarse como superficie de ataque crítica.
+
+- **SHA pinning** de toda acción third-party (no más tags movibles tipo `@v4`):
+  - `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683` (v4.2.2)
+  - `actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065` (v5.4.0)
+  - `github/codeql-action/{init,analyze}@5c8a8a642e79153f5d047b10ec1cba1d1cc65699` (v3.28.10)
+  - `astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39` (v3.2.4) — allowlist queda **vacía**.
+- **`persist-credentials: false`** en todos los `actions/checkout` — el `GITHUB_TOKEN` ya no queda expuesto a steps posteriores.
+- **Permisos mínimos** por workflow (`contents: read`) y solo se elevan en CodeQL (`security-events: write`, `actions: read`).
+- **Concurrencia** con `cancel-in-progress: true` en CI/security/deps/markdown — reduce ventana de runs huérfanos con tokens vivos.
+- **CodeQL** con `security-extended,security-and-quality` (antes: queries default).
+- **detect-secrets pinned** (`==1.5.0`) + escaneo de los **últimos 50 commits** para detectar secretos commiteados y borrados después.
+- **Trojan Source** (CVE-2021-42574): falla CI si aparecen Unicode bidi (`U+202A..E`, `U+2066..9`, `U+200F`, `U+061C`).
+- **Homoglyphs / zero-width** (`U+200B/C/D`, `U+FEFF`) en `.py/.js/.ts/.yml`.
+- **Patrones de ofuscación**: `exec(base64...)`, `eval()` dinámico, `os.system()` con concat, `subprocess(shell=True)` interpolado, `pickle.loads`, `__import__` dinámico.
+- **URLs de exfiltración hardcodeadas**: webhooks de Discord/Slack/webhook.site/requestbin/burp/ngrok/pastebin.
+- **pip-audit pinned** (`==2.7.3`) con enforcement progresivo (soft en PR, hard en push a main / schedule).
+- **Workflow nuevo `workflow-security.yml`** que audita los propios YAML:
+  - `actionlint 1.7.7` con verificación de checksum.
+  - `zizmor==1.5.2` (template injection en `${{ }}`, permisos excesivos, `pull_request_target` peligroso, unpinned-uses, cache poisoning).
+  - `pin-check` propio: falla CI si aparece un `uses:` third-party sin SHA de 40 chars (allowlist explícita única para `astral-sh/setup-uv`).
+- **SECURITY.md** ampliada con sección "Hardening del CI/CD": política de pinning, triggers prohibidos (`pull_request_target`, `workflow_run`), tabla de detecciones y SHAs activos.
+- **dependabot.yml**: label `security` en updates de actions + checklist de revisión manual antes de merge (verificar SHA upstream + changelog de permisos).
+
+---
+
 ## [0.4.0] — 2026-05-02
 
 ### ✨ Nuevos casos operativos

@@ -123,6 +123,32 @@ Las tres deben pasar antes de empujar a `main`.
 | Schema | `jsonschema` (extra) | Validador estricto |
 | Tests | `pytest`, `pytest-cov` (extra) | Suite |
 
+## 🛡️ Verificar hardening del CI antes de un push grande
+
+Cuando vayas a tocar `.github/workflows/**` o agregar una nueva acción third-party, validá local antes de empujar:
+
+```bash
+# 1. Sintaxis YAML de todos los workflows
+python -c "import yaml,glob; [yaml.safe_load(open(f,encoding='utf-8')) for f in glob.glob('.github/workflows/*.yml')]; print('YAML OK')"
+
+# 2. zizmor en local (audita injection / permisos / unpinned)
+pip install zizmor==1.5.2
+zizmor --persona=auditor .github/workflows/
+
+# 3. actionlint en local
+# Linux/Mac: bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+./actionlint -color
+```
+
+Si zizmor o actionlint marcan algo, **no pushees** sin entender el hallazgo. La política completa está en [SECURITY.md](SECURITY.md) §"Hardening del CI/CD".
+
+## ➕ Agregar una acción third-party nueva al CI
+
+1. Buscar el SHA del tag deseado en el repo upstream (página de releases o `git ls-remote`).
+2. En el workflow: `uses: owner/repo@<sha-de-40-chars>  # vX.Y.Z`.
+3. El job `pin-check` de [workflow-security.yml](.github/workflows/workflow-security.yml) falla si el SHA no tiene 40 chars hex.
+4. Excepciones (allowlist) van en `ALLOWLIST=()` dentro del mismo workflow + justificación en [SECURITY.md](SECURITY.md) §CI.
+
 ## 🚨 Rollback de un commit en main
 
 ```bash

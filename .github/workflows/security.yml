@@ -1,5 +1,15 @@
 name: Security
 
+# Modelo de amenaza: este repo ejecuta acciones de teclado/mouse/captura de
+# pantalla en el equipo del operador. Un commit malicioso fusionado a main
+# se traduce directamente en RCE local cuando el operador hace pull. Por eso:
+#  - Todas las acciones third-party van pinned a SHA (no a tag).
+#  - persist-credentials: false en todos los checkout.
+#  - Permisos mínimos por job.
+#  - Detección de Trojan Source, ofuscación, secretos y vulns conocidas.
+#  - Análisis estático con CodeQL security-extended.
+#  - Los workflows mismos se auditan en .github/workflows/workflow-security.yml.
+
 on:
   push:
     branches: [main]
@@ -7,67 +17,220 @@ on:
     branches: [main]
   schedule:
     - cron: '0 6 * * 1'  # lunes 06:00 UTC
+  workflow_dispatch:
 
 permissions:
   contents: read
-  security-events: write
-  actions: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # ── 1. CodeQL con queries extendidas ──────────────────────────────────────
   codeql:
-    name: CodeQL Python
+    name: CodeQL Python (security-extended)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@5c8a8a642e79153f5d047b10ec1cba1d1cc65699  # v3.28.10
         with:
           languages: python
+          # Queries extendidas: detectan command injection, path traversal,
+          # uso inseguro de subprocess/eval, deserialización, etc.
+          queries: security-extended,security-and-quality
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@5c8a8a642e79153f5d047b10ec1cba1d1cc65699  # v3.28.10
+        with:
+          category: "/language:python"
+        # Tolera que el upload de SARIF falle cuando "Code Scanning" no está
+        # habilitado en Settings → Code security. El análisis igual corre y
+        # los hallazgos se ven en el log del job. Para activar la pestaña
+        # Security/Code scanning del repo: Settings → Code security and
+        # analysis → Code scanning → Enable.
+        continue-on-error: true
 
+  # ── 2. detect-secrets con baseline obligatorio + scan de historial ────────
   detect-secrets:
-    name: detect-secrets scan
+    name: detect-secrets (tracked + history)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.12' }
-      - run: pip install detect-secrets
-      - name: Scan repo
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0  # necesario para escaneo de historial
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.4.0
+        with:
+          python-version: '3.12'
+      - name: Install detect-secrets (versión pinned)
+        run: pip install detect-secrets==1.5.0
+      - name: Validar baseline si existe
         run: |
-          detect-secrets scan --baseline .secrets.baseline 2>/dev/null || true
+          if [ -f .secrets.baseline ]; then
+            python -m json.tool .secrets.baseline > /dev/null
+            echo "✅ Baseline válido"
+          else
+            echo "ℹ️  Sin baseline — se hará escaneo limpio"
+          fi
+      - name: Escaneo del filesystem actual
+        run: |
           detect-secrets scan \
-            --exclude-files '\.git/|\.venv/|node_modules/|\.tmp.*|output/|state/|logs/|db/|docs/manual_screenshots/' \
+            --exclude-files '\.git/|\.venv/|node_modules/|\.tmp.*|output/|state/|logs/|db/|docs/manual_screenshots/|\.secrets\.baseline' \
             --exclude-lines '^\s*#|^\s*//|^\s*\*' \
             > /tmp/scan_output.json
-          # Falla si encuentra secretos no esperados
           python - <<'PY'
-          import json
-          with open('/tmp/scan_output.json') as f:
-              data = json.load(f)
+          import json, sys
+          data = json.load(open('/tmp/scan_output.json'))
           results = data.get('results', {})
           if results:
               print('⚠️ Posibles secretos detectados:')
               for fpath, items in results.items():
                   for it in items:
                       print(f"  {fpath}:{it.get('line_number')}  type={it.get('type')}")
-              raise SystemExit(1)
-          print('✅ Sin secretos expuestos')
+              sys.exit(1)
+          print('✅ Sin secretos expuestos en filesystem')
           PY
+      - name: Escaneo de últimos 50 commits
+        run: |
+          # Falla si algún commit reciente introdujo secretos (incluso si fueron borrados después).
+          # Estrategia: para cada commit, escaneamos el árbol completo en ese punto.
+          # Esto detecta tanto blobs aún presentes como blobs eliminados después.
+          set -e
+          status=0
+          for sha in $(git log --format="%H" -n 50); do
+            tmp=$(mktemp -d)
+            git --work-tree="$tmp" checkout "$sha" -- . 2>/dev/null || { rm -rf "$tmp"; continue; }
+            (
+              cd "$tmp"
+              detect-secrets scan \
+                --exclude-files '\.git/|\.venv/|node_modules/|output/|state/|logs/|db/|\.secrets\.baseline|\.lock$' \
+                > /tmp/hist_scan.json 2>/dev/null || true
+            )
+            rm -rf "$tmp"
+            if python -c 'import json,sys; d=json.load(open("/tmp/hist_scan.json")); sys.exit(1 if d.get("results") else 0)'; then
+              :
+            else
+              echo "::error::Secreto detectado en commit $sha"
+              status=1
+            fi
+          done
+          if [ "$status" -ne 0 ]; then exit 1; fi
+          echo "✅ Historial reciente limpio"
 
-  pip-audit:
-    name: pip-audit (vulnerabilidades en deps)
+  # ── 3. Trojan Source + patrones de ofuscación ─────────────────────────────
+  supply-chain:
+    name: Supply chain (Trojan Source + obfuscation)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      # CVE-2021-42574: caracteres bidi Unicode pueden ocultar lógica maliciosa
+      # haciendo que el código se vea diferente al humano vs. al compilador.
+      - name: Detectar caracteres Unicode bidireccionales
+        run: |
+          if git ls-files -z | xargs -0 grep -PlU $'\x{202a}|\x{202b}|\x{202c}|\x{202d}|\x{202e}|\x{2066}|\x{2067}|\x{2068}|\x{2069}|\x{200f}|\x{061c}' 2>/dev/null; then
+            echo "::error::Caracteres bidireccionales detectados (Trojan Source — CVE-2021-42574)"
+            exit 1
+          fi
+          echo "✅ Sin Trojan Source"
+      - name: Detectar zero-width / homoglyphs sospechosos en código
+        run: |
+          # Zero-width space, joiner, non-joiner — usados para esconder identificadores
+          if git ls-files -z '*.py' '*.js' '*.ts' '*.yml' '*.yaml' \
+             | xargs -0 grep -PlU $'\x{200B}|\x{200C}|\x{200D}|\x{FEFF}' 2>/dev/null; then
+            echo "::error::Caracteres zero-width detectados en código fuente"
+            exit 1
+          fi
+          echo "✅ Sin zero-width sospechosos"
+      - name: Detectar patrones de ofuscación / ejecución dinámica
+        run: |
+          # Reglas Python-especificas: solo *.py reales. Excluimos workflows
+          # del CI y tests cuyo proposito es detectar/documentar estos patrones
+          # (los .md docs/CHANGELOG/SECURITY ya quedan fuera al limitar a *.py).
+          status=0
+          # mapfile -d '' lee correctamente nombres separados por null byte
+          # (las variables shell no preservan \0, pero arrays de bash si).
+          mapfile -d '' files < <(git ls-files -z '*.py' | grep -zEv '\.github/|tests/.*detect.*' || true)
+
+          run_check() {
+            local label="$1" pattern="$2" severity="$3"
+            if [ "${#files[@]}" -eq 0 ]; then return 0; fi
+            local hits
+            hits=$(grep -Pl "$pattern" "${files[@]}" 2>/dev/null || true)
+            if [ -n "$hits" ]; then
+              echo "::${severity}::${label}"
+              echo "  ${hits//$'\n'/$'\n  '}"
+              status=1
+            fi
+          }
+
+          run_check "Patron base64+exec detectado"                   'exec\s*\(\s*(base64|codecs\.decode)' error
+          run_check "eval() con argumento dinamico - revisar"        'eval\s*\([^"\x27]'                   warning
+          run_check "os.system con concatenacion detectado"          'os\.system\s*\(.*\+'                 error
+          run_check "subprocess shell=True con interpolacion"        'subprocess\.[a-z_]+\([^)]*shell\s*=\s*True[^)]*(\+|f["\x27]|\.format\()' warning
+          run_check "pickle.loads detectado - verificar origen"      'pickle\.loads?\('                    warning
+          run_check "__import__ dinamico detectado"                  '__import__\s*\([^"\x27]'             warning
+
+          if [ "$status" -ne 0 ]; then exit 1; fi
+          echo "OK: sin patrones de ofuscacion"
+      - name: Detectar URLs de webhook/exfiltración hardcodeadas
+        run: |
+          # Solo escaneamos archivos de codigo reales. Los .md de doc listan
+          # estos dominios como IOCs y disparan falsos positivos.
+          # Tipos cubiertos: Python, JS/TS, JSON, TOML, YAML (excluyendo
+          # workflows del CI que documentan los mismos patrones).
+          MATCHES=$(git ls-files -z '*.py' '*.js' '*.ts' '*.tsx' '*.jsx' '*.json' '*.toml' '*.yaml' '*.yml' \
+            | grep -zEv '\.github/workflows/|tests/.*detect.*' \
+            | xargs -0 grep -lE '(discord\.com/api/webhooks|hooks\.slack\.com|webhook\.site|requestbin\.com|burpcollaborator\.net|ngrok\.io|pastebin\.com/raw)' 2>/dev/null || true)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::URL de webhook/exfil sospechosa hardcodeada en:"
+            printf '%s\n' "$MATCHES"
+            exit 1
+          fi
+          echo "OK: sin URLs de exfil sospechosas"
+
+  # ── 4. pip-audit con enforcement progresivo ───────────────────────────────
+  pip-audit:
+    name: pip-audit (deps vulnerables)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      # En PR avisamos sin bloquear; en push a main / schedule fallamos.
+      ENFORCEMENT: ${{ github.event_name == 'pull_request' && 'soft' || 'hard' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39  # v3.2.4
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
       - run: uv python install 3.12
       - run: uv sync --extra dev --extra schema
-      - run: uv pip install pip-audit
+      - name: Install pip-audit (pinned)
+        run: uv pip install 'pip-audit==2.7.3'
       - name: Run pip-audit
-        run: uv run pip-audit --strict --desc
-        continue-on-error: true  # informativo: no bloquea CI mientras se calibra
+        run: |
+          set +e
+          uv run pip-audit --strict --desc
+          rc=$?
+          if [ "$rc" -ne 0 ] && [ "$ENFORCEMENT" = "hard" ]; then
+            echo "::error::Vulnerabilidades en deps (modo hard, push/schedule)"
+            exit "$rc"
+          fi
+          if [ "$rc" -ne 0 ]; then
+            echo "::warning::Vulnerabilidades en deps (modo soft en PR — revisar antes de merge)"
+          fi

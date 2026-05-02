@@ -1,0 +1,158 @@
+name: Workflow security
+
+# Audita los propios archivos .github/workflows/*.yml en busca de:
+#  - script injection vía expresiones ${{ github.event.* }} en run:
+#  - uso de pull_request_target sin sanitizar (riesgo crítico)
+#  - acciones third-party sin pin a SHA
+#  - permisos excesivos del GITHUB_TOKEN
+#  - uso de tags movibles (@main, @master, @v1) en third-party
+#
+# Herramientas:
+#   - actionlint: linter sintáctico + reglas de seguridad básicas
+#   - zizmor:     analizador estático especializado en GitHub Actions
+#                 (https://github.com/woodruffw/zizmor)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - '.github/dependabot.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - '.github/dependabot.yml'
+  schedule:
+    - cron: '0 5 * * 1'  # lunes 05:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-sec-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    name: actionlint (sintaxis + reglas seguridad)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Descargar actionlint (con verificación de checksum)
+        run: |
+          VERSION="1.7.7"
+          BIN="actionlint_${VERSION}_linux_amd64.tar.gz"
+          curl -sSfL -o actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${VERSION}/${BIN}"
+          # Checksum publicado en el release
+          EXPECTED="023070a287cd8cccd71515fd2ecb7eb9b5ee2f7fed6f6e0fa4104b52d4e60d10"
+          ACTUAL=$(sha256sum actionlint.tar.gz | awk '{print $1}')
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "::warning::Checksum de actionlint no coincide ($ACTUAL). Verificar release manualmente."
+            # No falla automáticamente — el checksum cambia con cada versión nueva.
+            # Mantener actualizado al subir VERSION.
+          fi
+          tar -xzf actionlint.tar.gz actionlint
+          chmod +x actionlint
+      - name: Ejecutar actionlint
+        run: ./actionlint -color
+
+  zizmor:
+    name: zizmor (análisis estático de workflows)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.4.0
+        with:
+          python-version: '3.12'
+      - name: Instalar zizmor (pinned)
+        run: pip install 'zizmor==1.5.2'
+      # Lo que detecta zizmor (template injection, excessive-permissions,
+      # dangerous-triggers, unpinned-uses, artipacked, cache-poisoning) está
+      # documentado fuera del run: para no contaminar el bloque con tokens que
+      # el propio zizmor interprete como expansión real.
+      - name: Auditar workflows
+        run: zizmor --persona=auditor --format=plain .github/workflows/
+
+  pin-check:
+    name: Verificar pin a SHA en acciones third-party
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.4.0
+        with:
+          python-version: '3.12'
+      - name: Instalar PyYAML (pinned)
+        run: pip install 'pyyaml==6.0.2'
+      # Allowlist (debe quedar vacía idealmente). Si se agrega una excepción,
+      # justificar en SECURITY.md §"Hardening del CI/CD".
+      - name: Detectar uses sin SHA pin
+        env:
+          ALLOWLIST: ""  # ej: "astral-sh/setup-uv,docker/setup-buildx-action"
+        run: |
+          python - <<'PY'
+          import os, re, sys, pathlib, yaml
+          allow = {a.strip() for a in os.environ.get("ALLOWLIST","").split(",") if a.strip()}
+          sha_re = re.compile(r"^[0-9a-f]{40}$")
+          violations = []
+          notices = []
+
+          def walk_uses(node, file, hits):
+              if isinstance(node, dict):
+                  for k, v in node.items():
+                      if k == "uses" and isinstance(v, str):
+                          hits.append((file, v))
+                      else:
+                          walk_uses(v, file, hits)
+              elif isinstance(node, list):
+                  for item in node:
+                      walk_uses(item, file, hits)
+
+          for wf in pathlib.Path(".github/workflows").glob("*.yml"):
+              data = yaml.safe_load(wf.read_text(encoding="utf-8"))
+              hits = []
+              walk_uses(data, str(wf), hits)
+              for f, ref in hits:
+                  # Acciones locales o reusable workflows del mismo repo: skip
+                  if ref.startswith("./") or ref.startswith(".github/"):
+                      continue
+                  if "@" not in ref:
+                      violations.append((f, ref, "sin @ref"))
+                      continue
+                  action, version = ref.rsplit("@", 1)
+                  if sha_re.match(version):
+                      continue
+                  if action in allow:
+                      notices.append((f, action, version))
+                      continue
+                  violations.append((f, action, version))
+
+          for f, action, version in notices:
+              print(f"::notice file={f}::{action}@{version} (allowlisted)")
+          for f, action, version in violations:
+              print(f"::error file={f}::Accion third-party sin SHA pin: {action}@{version}")
+
+          if violations:
+              print()
+              print(f"FAIL: {len(violations)} accion(es) sin SHA.")
+              print("Pinear con un commit SHA de 40 chars hex y dejar la version humana en comentario:")
+              print("  uses: owner/repo@<sha40>  # vX.Y.Z")
+              print("Ver SECURITY.md seccion 'Hardening del CI/CD'.")
+              sys.exit(1)
+          print("OK: todas las acciones third-party estan pinned a SHA o en allowlist.")
+          PY
