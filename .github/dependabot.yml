@@ -24,6 +24,12 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+      - "security"
     commit-message:
       prefix: "ci"
       include: "scope"
+    # Mantiene el formato `@<sha>  # vX.Y.Z` al actualizar — política definida en SECURITY.md §CI.
+    # Al mergear un PR de dependabot, verificar manualmente:
+    #  1. Que el SHA propuesto exista realmente en el repo upstream.
+    #  2. Que el changelog upstream no introduzca permisos nuevos.
+    #  3. Que workflow-security.yml siga pasando.

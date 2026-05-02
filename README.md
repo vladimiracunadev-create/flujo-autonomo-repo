@@ -159,6 +159,7 @@ flowchart LR
 | **Casos utilitarios (solo JSON)** | 🟡 4 flows · 03 04 05 06 | mínimo aceptable, no foco |
 | Suite pytest | 🟢 79 verde | [tests/](tests) |
 | CI: lint + tests + smoke + security + docs | 🟢 Operativo | [.github/workflows/](.github/workflows) |
+| CI hardening (SHA pin + zizmor + Trojan Source) | 🟢 Operativo | [SECURITY.md](SECURITY.md) §CI · [workflow-security.yml](.github/workflows/workflow-security.yml) |
 | Multiusuario / RBAC | 🔴 No | un operador local |
 | Aislamiento OS-level | 🟡 Sandbox declarativo, no proceso | [docs/SEGURIDAD.md](docs/SEGURIDAD.md) |
 
@@ -208,7 +209,9 @@ uv run ruff check .                    # lint
 uv run python scripts/validate_project.py   # JSON Schema + acciones
 ```
 
-Las tres deben pasar. CI corre lo mismo + `security.yml` (CodeQL, detect-secrets, pip-audit) + `markdown-docs.yml` (links rotos) + `dependency-hygiene.yml`.
+Las tres deben pasar. CI corre lo mismo + `security.yml` (CodeQL `security-extended`, detect-secrets sobre filesystem **e historial**, Trojan Source CVE-2021-42574, ofuscación, exfiltración, pip-audit) + `workflow-security.yml` (actionlint + zizmor + pin-check sobre los propios YAML) + `markdown-docs.yml` (links rotos) + `dependency-hygiene.yml`.
+
+Toda acción third-party va pinned a SHA — política completa en [SECURITY.md](SECURITY.md) §"Hardening del CI/CD".
 
 ---
 

@@ -6,21 +6,32 @@ on:
     paths:
       - '**/*.md'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: md-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   link-check:
     name: Validar links internos
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.12' }
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.4.0
+        with:
+          python-version: '3.12'
       - name: Verificar referencias internas
         run: |
           python - <<'PY'
           import re, pathlib, sys
           root = pathlib.Path('.')
           missing = []
-          # busca [...](path) donde path es relativo (no http) y verifica existencia
           link_re = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
           for md in root.rglob('*.md'):
               if any(part in str(md) for part in ('node_modules', '.git', 'output', 'state', 'logs')):

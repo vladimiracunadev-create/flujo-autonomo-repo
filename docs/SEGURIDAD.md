@@ -159,6 +159,31 @@ Por eso `db/*.db`, `logs/*.jsonl`, `state/*.json`, `output/**/*.json`, `output/*
 
 ---
 
+## 🛡️ Hardening Del CI/CD
+
+El repositorio ejecuta acciones reales sobre tu escritorio. Eso significa que un commit malicioso fusionado a `main` es RCE local en cuanto haces `git pull`. Por eso el CI se trata como superficie de ataque crítica y aplica las siguientes capas:
+
+| Capa | Detalle | Archivo |
+| --- | --- | --- |
+| 🔗 Pin a SHA | Toda acción third-party va pinned a commit SHA, no a tag | [.github/workflows/](../.github/workflows/) |
+| 🔐 Sin credenciales persistentes | `persist-credentials: false` en todos los `actions/checkout` | ídem |
+| ⚖️ Permisos mínimos | `contents: read` por workflow, escala solo en CodeQL | ídem |
+| 🚫 Triggers prohibidos | No `pull_request_target`, no `workflow_run` con código mutable | [SECURITY.md](../SECURITY.md) |
+| 🧠 SAST | CodeQL `security-extended,security-and-quality` | [security.yml](../.github/workflows/security.yml) |
+| 🕵️ Secretos | `detect-secrets==1.5.0` sobre filesystem + últimos 50 commits | ídem |
+| 🦠 Trojan Source | CVE-2021-42574 (Unicode bidi) + zero-width / homoglyphs | ídem |
+| 🎭 Ofuscación | `exec(base64)`, `eval()` dinámico, `subprocess(shell=True)` interpolado, `pickle.loads`, `__import__` dinámico | ídem |
+| 📡 Exfiltración | Discord/Slack/webhook.site/ngrok/pastebin hardcodeados | ídem |
+| 📦 Deps Python | `pip-audit==2.7.3` (soft en PR, hard en push/schedule) | ídem |
+| 🤖 Workflows mismos | `actionlint` (checksum) + `zizmor==1.5.2` + pin-check propio | [workflow-security.yml](../.github/workflows/workflow-security.yml) |
+
+> [!IMPORTANT]
+> Si un PR introduce un `uses:` sin SHA de 40 chars, el job `pin-check` lo rechaza automáticamente. Si necesitas excepción justificada, agrégala a la `ALLOWLIST` en [workflow-security.yml](../.github/workflows/workflow-security.yml) y documenta el porqué en [SECURITY.md](../SECURITY.md) §CI.
+
+Para la política completa con SHAs activos y procedimiento de revisión, ver [SECURITY.md](../SECURITY.md) §"Hardening del CI/CD".
+
+---
+
 ## 🎁 Alcance Actual
 
 La 0.2.0 agrega sandbox declarativo, secretos y webhook autenticado. Para uso multiusuario, integración empresarial o ejecución de manifests no confiables haría falta:
