@@ -1414,6 +1414,21 @@ class AppHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+        if path == '/api/form/submit':
+            length = int(self.headers.get('Content-Length', '0') or '0')
+            if length <= 0:
+                return self._send_json({'ok': False, 'error': 'sin body'}, status=400)
+            raw = self.rfile.read(length).decode('utf-8')
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                return self._send_json({'ok': False, 'error': 'JSON inválido'}, status=400)
+            from datetime import datetime as _dt
+            ts = _dt.now().strftime('%Y%m%d_%H%M%S_%f')
+            target = ROOT / 'output' / 'reports' / f'form_submission_panel_{ts}.json'
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+            return self._send_json({'ok': True, 'saved_path': str(target.relative_to(ROOT))})
         if path.startswith('/api/run/'):
             folder = path[len('/api/run/'):].strip('/')
             flow = get_flow_by_folder(folder)

@@ -1,0 +1,21 @@
+{
+  "id": "browser_form_filler",
+  "name": "Llenado y validación de formulario web",
+  "family": "navegador",
+  "description": "Operación avanzada: lanza Chromium visible (no headless por defecto), navega a un formulario HTML local con 10 campos (data/web/form_demo.html), genera datos sintéticos random, los rellena uno por uno con slow_mo para que sea observable, dispara submit, espera la validación JS de la página y persiste el JSON con los datos enviados + texto de validación + payload renderizado. Vos podés VER cómo se abre la ventana y se llenan los campos. Solo datos como salida — sin PNG.",
+  "steps": [
+    {
+      "id": "fill_and_submit_form",
+      "action": "browser.fill_form",
+      "params": {
+        "target": "{{ target_url }}",
+        "headless": "{{ headless }}",
+        "slow_mo_ms": "{{ slow_mo_ms }}",
+        "save_data_path": "output/reports/form_submission_{now}.json",
+        "viewport_width": "{{ viewport_width }}",
+        "viewport_height": "{{ viewport_height }}"
+      },
+      "save_as": "form_result"
+    }
+  ]
+}

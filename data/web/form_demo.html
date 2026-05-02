@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Formulario de Demostración · Flujo Autónomo</title>
+<style>
+  :root {
+    --bg: #f4f7fb;
+    --surface: #fff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --accent: #2563eb;
+    --border: #e5e7eb;
+    --success: #166534;
+    --success-soft: #dcfce7;
+    --danger: #991b1b;
+    --danger-soft: #fee2e2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 16px;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    background: var(--surface);
+    border-radius: 18px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, .08);
+    overflow: hidden;
+  }
+  header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: white;
+    padding: 24px 32px;
+  }
+  header h1 { margin: 0; font-size: 22px; }
+  header p { margin: 6px 0 0 0; color: #94a3b8; font-size: 14px; }
+  form { padding: 24px 32px 32px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field.full { grid-column: 1 / -1; }
+  label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  input, select, textarea {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+    background: white;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px #dbeafe;
+  }
+  textarea { min-height: 80px; resize: vertical; }
+  .actions { margin-top: 22px; display: flex; gap: 10px; justify-content: flex-end; }
+  button {
+    padding: 11px 22px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: white; }
+  button.primary:hover { background: #1d4ed8; }
+  button.ghost { background: transparent; color: var(--muted); }
+  #validation-result {
+    margin-top: 18px;
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    display: none;
+  }
+  #validation-result.show { display: block; }
+  #validation-result.success { background: var(--success-soft); color: var(--success); border: 1px solid #bbf7d0; }
+  #validation-result.error { background: var(--danger-soft); color: var(--danger); border: 1px solid #fecaca; }
+  #submitted-data {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border-radius: 10px;
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    border: 1px solid var(--border);
+    display: none;
+  }
+  #submitted-data.show { display: block; }
+  .field-error { border-color: var(--danger) !important; background: #fef2f2 !important; }
+  .errors-list { color: var(--danger); font-size: 12px; margin-top: 4px; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📋 Formulario de Demostración</h1>
+      <p>10 campos · validación al submit · datos persistidos en localStorage y POST a /api/submit</p>
+    </header>
+    <form id="demo-form" novalidate>
+      <div class="grid">
+        <div class="field">
+          <label for="nombre">Nombre *</label>
+          <input id="nombre" name="nombre" type="text" required />
+        </div>
+        <div class="field">
+          <label for="apellido">Apellido *</label>
+          <input id="apellido" name="apellido" type="text" required />
+        </div>
+        <div class="field">
+          <label for="email">Email *</label>
+          <input id="email" name="email" type="email" required />
+        </div>
+        <div class="field">
+          <label for="telefono">Teléfono *</label>
+          <input id="telefono" name="telefono" type="tel" required pattern="\+?[0-9 ]{8,16}" />
+        </div>
+        <div class="field full">
+          <label for="direccion">Dirección *</label>
+          <input id="direccion" name="direccion" type="text" required />
+        </div>
+        <div class="field">
+          <label for="ciudad">Ciudad *</label>
+          <input id="ciudad" name="ciudad" type="text" required />
+        </div>
+        <div class="field">
+          <label for="pais">País *</label>
+          <select id="pais" name="pais" required>
+            <option value="">Selecciona…</option>
+            <option value="CL">Chile</option>
+            <option value="AR">Argentina</option>
+            <option value="MX">México</option>
+            <option value="ES">España</option>
+            <option value="CO">Colombia</option>
+            <option value="PE">Perú</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fecha_nacimiento">Fecha nacimiento *</label>
+          <input id="fecha_nacimiento" name="fecha_nacimiento" type="date" required />
+        </div>
+        <div class="field">
+          <label for="profesion">Profesión *</label>
+          <input id="profesion" name="profesion" type="text" required />
+        </div>
+        <div class="field full">
+          <label for="comentario">Comentario *</label>
+          <textarea id="comentario" name="comentario" required minlength="10"></textarea>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="reset" class="ghost">Limpiar</button>
+        <button type="submit" class="primary" id="btn-submit">Enviar formulario</button>
+      </div>
+      <div id="validation-result"></div>
+      <pre id="submitted-data"></pre>
+    </form>
+  </div>
+
+<script>
+const form = document.getElementById('demo-form');
+const result = document.getElementById('validation-result');
+const submittedData = document.getElementById('submitted-data');
+
+function validate(fields) {
+  const errors = [];
+  if (!fields.nombre || fields.nombre.length < 2) errors.push('Nombre demasiado corto');
+  if (!fields.apellido || fields.apellido.length < 2) errors.push('Apellido demasiado corto');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fields.email || '')) errors.push('Email inválido');
+  if (!/^\+?[0-9 ]{8,16}$/.test(fields.telefono || '')) errors.push('Teléfono inválido');
+  if (!fields.direccion || fields.direccion.length < 5) errors.push('Dirección demasiado corta');
+  if (!fields.ciudad) errors.push('Ciudad requerida');
+  if (!fields.pais) errors.push('País requerido');
+  if (!fields.fecha_nacimiento) errors.push('Fecha de nacimiento requerida');
+  if (!fields.profesion) errors.push('Profesión requerida');
+  if (!fields.comentario || fields.comentario.length < 10) errors.push('Comentario debe tener al menos 10 caracteres');
+  return errors;
+}
+
+form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const data = Object.fromEntries(new FormData(form).entries());
+  const errors = validate(data);
+
+  document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+
+  if (errors.length) {
+    result.className = 'show error';
+    result.innerHTML = '<strong>❌ Validación falló</strong><ul class="errors-list">' +
+      errors.map(e => '<li>' + e + '</li>').join('') + '</ul>';
+    submittedData.classList.remove('show');
+    return;
+  }
+
+  // Persistir local
+  const record = { ...data, submitted_at: new Date().toISOString() };
+  try {
+    const all = JSON.parse(localStorage.getItem('form_submissions') || '[]');
+    all.push(record);
+    localStorage.setItem('form_submissions', JSON.stringify(all));
+  } catch (e) {}
+
+  // Posible POST al backend si está disponible
+  let backend = '';
+  try {
+    const res = await fetch('/api/form/submit', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(record),
+    });
+    if (res.ok) {
+      const r = await res.json();
+      backend = ' · guardado server-side: ' + (r.saved_path || 'ok');
+    }
+  } catch (e) {}
+
+  result.className = 'show success';
+  result.innerHTML = '<strong>✅ Formulario válido y guardado</strong> · ' +
+    Object.keys(data).length + ' campos validados' + backend;
+  submittedData.classList.add('show');
+  submittedData.textContent = JSON.stringify(record, null, 2);
+});
+</script>
+</body>
+</html>
