@@ -17,8 +17,10 @@
 
 [![CI](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/ci.yml)
 [![Security](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/security.yml)
+[![Workflow security](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/workflow-security.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/workflow-security.yml)
 [![License](https://img.shields.io/badge/license-MIT-15803d.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.4.0-0f766e)](CHANGELOG.md)
+[![Security policy](https://img.shields.io/badge/security-policy-7c3aed.svg)](SECURITY.md)
 
 </div>
 
@@ -179,7 +181,11 @@ Los flows 02, 03 y 07 abren un **modal especial pidiendo input** cuando se dispa
 
 ---
 
-## 🛡️ Seguridad operativa
+## 🛡️ Seguridad
+
+Dos frentes distintos, cada uno con su política dedicada:
+
+### 1. Runtime — sandbox declarativo por flow
 
 Cada flow declara su política directamente:
 
@@ -194,7 +200,31 @@ Cada flow declara su política directamente:
 }
 ```
 
-El motor rechaza acciones fuera del allowlist, valida prefijos de paths y exige los secrets antes de iniciar. Detalle en [docs/SEGURIDAD.md](docs/SEGURIDAD.md). Política de reporte de vulnerabilidades en [SECURITY.md](SECURITY.md).
+El motor rechaza acciones fuera del allowlist, valida prefijos de paths y exige los secrets antes de iniciar. **Detalle completo → [docs/SEGURIDAD.md](docs/SEGURIDAD.md)**.
+
+### 2. Supply chain — hardening del CI/CD
+
+Este repo ejecuta acciones reales sobre tu escritorio Windows. Un commit malicioso fusionado a `main` se traduce en RCE local en cuanto haya `git pull`. Por eso el CI se trata como frontera de confianza con **12 capas de defensa**:
+
+| # | Capa | Garantiza |
+| --- | --- | --- |
+| 1 | SHA pin en toda acción third-party | El código que se ejecuta es el aprobado al mergear |
+| 2 | `pin-check` con parser YAML real | Imposible introducir un `uses:` sin SHA sin que falle CI |
+| 3 | Allowlist vacía + excepciones documentadas | Cero excepciones silenciosas |
+| 4 | `persist-credentials: false` | Token no queda accesible a steps posteriores |
+| 5 | Permisos mínimos (`contents: read`) | Step comprometido no puede empujar a `main` |
+| 6 | `concurrency: cancel-in-progress` | Ventana temporal de tokens reducida |
+| 7 | Triggers prohibidos (`pull_request_target`) | Cierra el vector #1 de GitHub Actions |
+| 8 | CodeQL `security-extended` | SAST sobre Python (CWE Top 25) |
+| 9 | `actionlint` + `zizmor==1.5.2` | SAST sobre los propios workflows YAML |
+| 10 | `detect-secrets==1.5.0` filesystem + 50 commits | Secretos commiteados detectados aunque se borren después |
+| 11 | Trojan Source + ofuscación + URLs de exfil | Payloads que pasarían review humana |
+| 12 | `pip-audit==2.7.3` (soft PR / hard main) | `main` sin CVEs publicadas |
+
+> [!IMPORTANT]
+> **Política completa con modelo de amenaza, justificación de cada capa y qué NO garantiza → [SECURITY.md §Hardening del CI/CD](SECURITY.md#hardening-del-cicd-supply-chain)**
+
+Política de reporte de vulnerabilidades también en [SECURITY.md](SECURITY.md).
 
 > [!WARNING]
 > El webhook entrante está **deshabilitado por defecto** y requiere `FLUJO_WEBHOOK_TOKEN`. Si lo expones más allá de localhost, ponelo detrás de un reverse proxy con TLS.
