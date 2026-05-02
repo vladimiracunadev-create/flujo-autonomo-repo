@@ -20,3 +20,4 @@ output/**/*.tmp
 secrets/*.json
 !secrets/.gitkeep
 .tmp*
+data/seeds/.used_indices.json

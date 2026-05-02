@@ -1,82 +1,93 @@
 """Acción ``browser.fill_form``: abre URL/HTML, rellena formulario y devuelve datos.
 
-Operación avanzada del sistema: lanza Chromium (visible o headless),
-genera 10 datos random, llena cada campo del DOM uno por uno con
-``slow_mo`` para que sea visualmente observable, dispara submit, espera
-la validación JS de la página y devuelve el resultado.
+Operación avanzada del sistema:
+- Carga un dataset JSON de N registros (default ``data/seeds/form_seeds.json``
+  con 100 registros).
+- Lleva un tracking persistente de IDs ya usados en
+  ``data/seeds/.used_indices.json`` para no repetir.
+- Elige aleatoriamente uno de los registros NO usados.
+- Lanza Chromium (visible o headless) con ``slow_mo`` para que el llenado
+  sea visualmente observable.
+- Llena los 10 campos del formulario uno por uno.
+- Submit, espera la validación JS de la página y devuelve los datos.
 
-NO genera capturas PNG: el output es **solo datos** (los 10 campos
-enviados, el texto de validación, si se mostró el JSON server-side, etc).
-Si ``save_data_path`` se especifica, persiste también un JSON con los
-datos generados y el resultado.
+NO genera capturas PNG: el output es **solo datos**. El JSON se guarda en
+``output/reports/`` (queda en el histórico SQLite del run).
 
-Repos open-source usados:
-- https://github.com/microsoft/playwright-python
+Cuando todos los registros del seed se hayan usado, el tracking se resetea
+automáticamente.
+
+Repo upstream: https://github.com/microsoft/playwright-python
 """
 from __future__ import annotations
 
 import json
 import random
-from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-_NOMBRES = ['Juan', 'María', 'Carlos', 'Ana', 'Pedro', 'Lucía', 'Javier', 'Camila',
-            'Diego', 'Valentina', 'Tomás', 'Sofía', 'Andrés', 'Isabel', 'Felipe']
-_APELLIDOS = ['Pérez', 'González', 'Rodríguez', 'López', 'Martínez', 'Sánchez',
-              'García', 'Fernández', 'Torres', 'Ramírez', 'Flores', 'Castro']
-_PROFESIONES = ['Ingeniero', 'Diseñadora', 'Profesor', 'Médica', 'Abogado',
-                'Periodista', 'Arquitecta', 'Programador', 'Contadora', 'Chef']
-_CIUDADES = {
-    'CL': ['Santiago', 'Valparaíso', 'Concepción', 'Antofagasta'],
-    'AR': ['Buenos Aires', 'Córdoba', 'Mendoza', 'Rosario'],
-    'MX': ['Ciudad de México', 'Guadalajara', 'Monterrey', 'Puebla'],
-    'ES': ['Madrid', 'Barcelona', 'Sevilla', 'Valencia'],
-    'CO': ['Bogotá', 'Medellín', 'Cali', 'Cartagena'],
-    'PE': ['Lima', 'Arequipa', 'Trujillo', 'Cusco'],
-}
-_CALLES = ['Av. Libertad', 'Calle Mayor', 'Av. Las Condes', 'Av. Providencia',
-           'Calle 9 de Julio', 'Av. Reforma', 'Calle Real', 'Pasaje del Sol']
-_DOMINIOS = ['mail.com', 'demo.io', 'example.org', 'workspace.dev', 'inbox.cl']
-_COMENTARIOS = [
-    'Este registro fue generado automáticamente por el flow para demostrar el llenado.',
-    'Datos sintéticos creados por el sistema con fines de prueba operativa.',
-    'Formulario completado desde una corrida automatizada en headless Chromium.',
-    'Probando el flujo completo: apertura, llenado, validación y guardado.',
-    'Test de integración E2E: 10 campos rellenados con valores random.',
-]
+DEFAULT_SEEDS_PATH = 'data/seeds/form_seeds.json'
+DEFAULT_USED_PATH = 'data/seeds/.used_indices.json'
 
 
-def _random_phone() -> str:
-    return '+56 9 ' + ''.join(str(random.randint(0, 9)) for _ in range(8))
+def _load_seed_records(seeds_path: str) -> list[dict[str, Any]]:
+    p = Path(seeds_path)
+    if not p.exists():
+        raise FileNotFoundError(
+            f'Dataset semilla no encontrado: {seeds_path}. '
+            f'Genera el archivo con 100 registros antes de ejecutar el flow.'
+        )
+    return json.loads(p.read_text(encoding='utf-8'))
 
 
-def _random_birth_date() -> str:
-    today = date.today()
-    days_back = random.randint(365 * 18, 365 * 65)
-    d = today - timedelta(days=days_back)
-    return d.isoformat()
+def _load_used_ids(used_path: str) -> set[int]:
+    p = Path(used_path)
+    if not p.exists():
+        return set()
+    try:
+        data = json.loads(p.read_text(encoding='utf-8'))
+        return {int(x) for x in data.get('used_ids', [])}
+    except (json.JSONDecodeError, ValueError, KeyError):
+        return set()
 
 
-def _generate_random_data() -> dict[str, str]:
-    nombre = random.choice(_NOMBRES)
-    apellido = random.choice(_APELLIDOS)
-    pais = random.choice(list(_CIUDADES.keys()))
-    ciudad = random.choice(_CIUDADES[pais])
-    email_user = f'{nombre.lower()}.{apellido.lower()}{random.randint(10, 99)}'
-    return {
-        'nombre': nombre,
-        'apellido': apellido,
-        'email': f'{email_user}@{random.choice(_DOMINIOS)}',
-        'telefono': _random_phone(),
-        'direccion': f'{random.choice(_CALLES)} {random.randint(100, 9999)}',
-        'ciudad': ciudad,
-        'pais': pais,
-        'fecha_nacimiento': _random_birth_date(),
-        'profesion': random.choice(_PROFESIONES),
-        'comentario': random.choice(_COMENTARIOS),
+def _save_used_ids(used_path: str, used: set[int], total: int) -> None:
+    p = Path(used_path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(
+        json.dumps({
+            'total_in_dataset': total,
+            'used_count': len(used),
+            'remaining': total - len(used),
+            'used_ids': sorted(used),
+        }, ensure_ascii=False, indent=2),
+        encoding='utf-8',
+    )
+
+
+def _pick_record(records: list[dict[str, Any]], used_path: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Elige un registro no usado al azar. Devuelve (registro, info_tracking)."""
+    used = _load_used_ids(used_path)
+    available_ids = [r['id'] for r in records if r['id'] not in used]
+    cycle_resetted = False
+    if not available_ids:
+        # Todos usados: reset
+        used = set()
+        available_ids = [r['id'] for r in records]
+        cycle_resetted = True
+    chosen_id = random.choice(available_ids)
+    used.add(chosen_id)
+    _save_used_ids(used_path, used, len(records))
+    chosen = next(r for r in records if r['id'] == chosen_id)
+    info = {
+        'chosen_id': chosen_id,
+        'used_count': len(used),
+        'remaining': len(records) - len(used),
+        'total_in_dataset': len(records),
+        'cycle_resetted': cycle_resetted,
     }
+    return chosen, info
 
 
 def _to_url(target: str) -> str:
@@ -91,6 +102,8 @@ def _to_url(target: str) -> str:
 
 def fill_form(
     target: str,
+    seeds_path: str = DEFAULT_SEEDS_PATH,
+    used_path: str = DEFAULT_USED_PATH,
     headless: bool = False,
     slow_mo_ms: int = 250,
     save_data_path: str | None = None,
@@ -98,13 +111,15 @@ def fill_form(
     viewport_height: int = 900,
     timeout_seconds: float = 30.0,
 ) -> dict[str, Any]:
-    """Abre la página, rellena el form y devuelve los datos enviados + validación.
+    """Carga 100 registros, elige uno NO usado, llena el form y devuelve datos.
 
-    NO genera PNG. Solo datos.
+    NO genera PNG. Solo datos. El registro elegido queda persistido en
+    ``data/seeds/.used_indices.json`` para que la próxima corrida no lo
+    repita. Cuando todos se usaron, reset automático.
 
     Si ``headless=False`` (default) **lanzas una ventana real de Chromium**
-    visible en pantalla. ``slow_mo_ms`` espera N ms entre cada acción para
-    que veas cómo se llenan los campos. Para CI/headless usa headless=True.
+    visible. ``slow_mo_ms`` espera N ms entre cada acción para que veas
+    cómo se llenan los campos.
     """
     try:
         from playwright.sync_api import sync_playwright
@@ -114,8 +129,12 @@ def fill_form(
             'pip install playwright && python -m playwright install chromium'
         ) from exc
 
+    records = _load_seed_records(seeds_path)
+    chosen, tracking = _pick_record(records, used_path)
+    # Filtramos solo las claves que va al formulario (sin 'id' interno)
+    form_data = {k: v for k, v in chosen.items() if k != 'id'}
+
     url = _to_url(target)
-    data = _generate_random_data()
     validation_text = ''
     submitted_visible = False
     submitted_payload_text = ''
@@ -134,8 +153,8 @@ def fill_form(
             # Rellena cada uno de los 10 campos
             for field in ('nombre', 'apellido', 'email', 'telefono', 'direccion',
                           'ciudad', 'fecha_nacimiento', 'profesion', 'comentario'):
-                page.fill(f'#{field}', data[field])
-            page.select_option('#pais', data['pais'])
+                page.fill(f'#{field}', form_data[field])
+            page.select_option('#pais', form_data['pais'])
 
             page.click('#btn-submit')
             try:
@@ -149,29 +168,32 @@ def fill_form(
         finally:
             browser.close()
 
-    is_success = validation_text.lower().startswith('✅') or 'válido' in validation_text.lower()
+    is_success = validation_text.startswith('✅') or 'válido' in validation_text.lower()
+
+    payload = {
+        'url': url,
+        'seed_record_id': chosen['id'],
+        'tracking': tracking,
+        'data_sent': form_data,
+        'validation_text': validation_text,
+        'is_success': is_success,
+        'submitted_visible': submitted_visible,
+        'submitted_payload': submitted_payload_text,
+    }
 
     saved_to: str | None = None
     if save_data_path:
         target_save = Path(save_data_path)
         target_save.parent.mkdir(parents=True, exist_ok=True)
-        target_save.write_text(
-            json.dumps({
-                'url': url,
-                'data_sent': data,
-                'validation_text': validation_text,
-                'is_success': is_success,
-                'submitted_visible': submitted_visible,
-                'submitted_payload': submitted_payload_text,
-            }, ensure_ascii=False, indent=2),
-            encoding='utf-8',
-        )
+        target_save.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
         saved_to = str(target_save)
 
     return {
         'url': url,
-        'fields_filled': len(data),
-        'data_sent': data,
+        'fields_filled': len(form_data),
+        'seed_record_id': chosen['id'],
+        'tracking': tracking,
+        'data_sent': form_data,
         'validation_text': validation_text,
         'is_success': is_success,
         'submitted_visible': submitted_visible,

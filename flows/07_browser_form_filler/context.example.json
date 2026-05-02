@@ -1,5 +1,7 @@
 {
   "target_url": "data/web/form_demo.html",
+  "seeds_path": "data/seeds/form_seeds.json",
+  "used_path": "data/seeds/.used_indices.json",
   "headless": false,
   "slow_mo_ms": 250,
   "viewport_width": 1280,
