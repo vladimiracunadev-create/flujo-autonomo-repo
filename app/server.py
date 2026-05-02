@@ -265,6 +265,51 @@ kbd { display: inline-block; padding: 2px 7px; background: #f1f5f9; border: 1px 
 .kbd-row { display: flex; align-items: center; gap: 12px; padding: 6px 0; font-size: 13px; }
 .kbd-row kbd { min-width: 70px; text-align: center; }
 
+/* === Run detail / Flow info === */
+.hero-card { background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); border: none; }
+.hero-image-card { padding: 0; overflow: hidden; cursor: zoom-in; margin-top: 16px; transition: transform .15s ease; }
+.hero-image-card:hover { transform: translateY(-2px); box-shadow: 0 18px 40px rgba(15,23,42,.12); }
+.hero-image-card img { width: 100%; max-height: 520px; object-fit: contain; display: block; background: #0f172a; }
+.hero-image-meta { padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+.kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
+.kpi-num { font-size: 28px; font-weight: 700; margin-top: 6px; }
+
+.run-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.run-tile { background: white; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; text-decoration: none; color: inherit; transition: transform .12s ease, box-shadow .12s ease; display: flex; flex-direction: column; }
+.run-tile:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(15,23,42,.10); text-decoration: none; }
+.run-tile-preview { background: #0f172a; height: 140px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.run-tile-preview img { width: 100%; height: 100%; object-fit: cover; }
+.run-tile-meta { padding: 10px 12px; }
+.run-tile-status { font-size: 12px; }
+.json-thumb { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; gap: 8px; }
+.json-thumb .json-icon { font-size: 36px; }
+.json-thumb .json-keys { font-family: ui-monospace, monospace; font-size: 11px; max-width: 90%; text-align: center; word-break: break-all; }
+
+.smart-summary { display: flex; flex-direction: column; gap: 0; }
+.smart-row { display: grid; grid-template-columns: 180px 1fr; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: center; font-size: 13px; }
+.smart-row:last-child { border-bottom: none; }
+.smart-key { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+.rgb-swatch { display: inline-block; width: 16px; height: 16px; border-radius: 4px; vertical-align: middle; margin-right: 6px; border: 1px solid var(--border); }
+.compact-list { margin: 0; padding-left: 18px; font-size: 13px; }
+.compact-list li { margin: 2px 0; }
+.mini-table { margin-top: 10px; }
+.mini-table th, .mini-table td { padding: 6px 10px; font-size: 12px; }
+
+.meta-details { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 0; box-shadow: var(--shadow); }
+.meta-details summary { padding: 14px 18px; cursor: pointer; font-weight: 600; color: var(--text); user-select: none; }
+.meta-details summary:hover { background: #f8fafc; }
+.meta-details[open] summary { border-bottom: 1px solid var(--border); }
+.meta-details pre { margin: 14px; }
+
+table.steps.clickable tbody tr { cursor: pointer; }
+table.steps.clickable tbody tr:hover { background: #eff6ff; }
+
+.lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 9500; cursor: zoom-out; align-items: center; justify-content: center; padding: 24px; }
+.lightbox.show { display: flex; }
+.lightbox img { max-width: 95%; max-height: 95%; box-shadow: 0 20px 80px rgba(0,0,0,.5); border-radius: 8px; }
+.lightbox .lb-caption { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); color: white; font-family: ui-monospace, monospace; font-size: 12px; background: rgba(0,0,0,.5); padding: 6px 14px; border-radius: 999px; }
+
 .run-progress { background: #f8fafc; border-radius: 12px; padding: 12px; border: 1px solid var(--border); }
 .run-progress-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
 .run-progress-header a { font-size: 12px; }
@@ -512,6 +557,39 @@ const KEY_TO_INDEX = {
   '1':0,'2':1,'3':2,'4':3,'5':4,'6':5,'7':6,'8':7,'9':8,
   '0':9,'-':10,'=':11
 };
+function openImageLightbox(url, name) {
+  const lb = document.getElementById('lightbox');
+  if (!lb) return;
+  lb.innerHTML = `<img src="${url}" alt="${name||''}" /><div class="lb-caption">${name||''}</div>`;
+  lb.classList.add('show');
+}
+function closeLightbox() {
+  const lb = document.getElementById('lightbox');
+  if (lb) lb.classList.remove('show');
+}
+function showStepResult(index, row) {
+  const dataEl = row.querySelector('.step-data');
+  if (!dataEl) return;
+  const raw = dataEl.textContent;
+  let pretty = raw;
+  try { pretty = JSON.stringify(JSON.parse(raw), null, 2); } catch {}
+  const stepName = row.querySelector('strong')?.textContent || '';
+  const action = row.querySelector('.path')?.textContent || '';
+  const html = `<div class="modal-bg" id="step-result-modal" onclick="this.remove()">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:780px">
+      <div class="modal-head">
+        <h3>Paso ${index} · <span class="path">${stepName}</span></h3>
+        <button onclick="document.getElementById('step-result-modal').remove()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="muted" style="margin-bottom:10px;font-size:12px">Acción: <span class="path">${action}</span></div>
+        <pre style="max-height:60vh;overflow:auto">${pretty.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</pre>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function closeStepModal() { const m = document.getElementById('step-result-modal'); if (m) m.remove(); }
 function showShortcutsHelp() {
   const existing = document.getElementById('shortcuts-modal');
   if (existing) { existing.remove(); return; }
@@ -783,48 +861,133 @@ def render_home() -> bytes:
     return html_page('Centro de procesos · Flujo Autónomo', body, active_nav='home')
 
 
+def _run_first_image(run: dict) -> dict | None:
+    """Devuelve el primer output PNG/JPG del run, si lo hay."""
+    outs = safe_json_loads(run.get('outputs_json')) or []
+    for o in outs:
+        if isinstance(o, dict):
+            p = (o.get('path') or '').lower()
+            if p.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+                return o
+    return None
+
+
+def _run_first_json_output(run: dict) -> dict | None:
+    outs = safe_json_loads(run.get('outputs_json')) or []
+    for o in outs:
+        if isinstance(o, dict) and (o.get('path') or '').lower().endswith('.json'):
+            return o
+    return None
+
+
 def render_flow_info(folder: str) -> bytes:
+    """Dashboard específico de un flow: hero + historial visual + meta colapsable."""
     flow = get_flow_by_folder(folder)
     if not flow:
         return html_page('No encontrado', '<div class="empty"><h4>Flujo inexistente</h4><a class="button ghost" href="/">Volver</a></div>')
     readme = Path(flow['readme_path']).read_text(encoding='utf-8') if Path(flow['readme_path']).exists() else ''
     manifest = Path(flow['flow_path']) / 'manifest.json'
     manifest_text = manifest.read_text(encoding='utf-8')
-    recent = list_runs(flow['id'], limit=10)
-    rows = ''.join(_history_row(r) for r in recent) or '<tr><td colspan="6" class="empty">Sin corridas</td></tr>'
+    runs = list_runs(flow['id'], limit=24)
+    schedule = get_schedule(folder)
+
+    total_runs = len(runs)
+    completed = sum(1 for r in runs if r.get('status') == 'completed')
+    failed = sum(1 for r in runs if r.get('status') == 'failed')
+    avg_duration = (
+        sum(r.get('duration_seconds') or 0 for r in runs if r.get('duration_seconds') is not None)
+        / max(1, sum(1 for r in runs if r.get('duration_seconds') is not None))
+    ) if runs else 0
+
+    # Grid visual de últimas corridas
+    if runs:
+        cards_html = []
+        for r in runs[:12]:
+            img = _run_first_image(r)
+            jsn = _run_first_json_output(r)
+            run_id = r['run_id']
+            status = r.get('status') or 'unknown'
+            dur = r.get('duration_seconds')
+            dur_text = f'{round(dur, 2)}s' if dur is not None else '—'
+            created = (r.get('created_at') or '')[:19].replace('T', ' ')
+            preview_html = ''
+            if img:
+                file_url = f"/file?path={html.escape(img['path'])}"
+                preview_html = f'<a href="{file_url}" target="_blank"><img src="{file_url}" loading="lazy" /></a>'
+            elif jsn:
+                # Lee unas claves del JSON para mostrar como preview
+                try:
+                    data = json.loads(Path(jsn['path']).read_text(encoding='utf-8'))
+                    keys = list(data.keys())[:3]
+                    preview_html = '<div class="json-thumb"><div class="json-icon">📊</div><div class="json-keys">' + ' · '.join(html.escape(k) for k in keys) + '</div></div>'
+                except Exception:
+                    preview_html = '<div class="json-thumb"><div class="json-icon">📊</div><div class="json-keys">JSON</div></div>'
+            else:
+                preview_html = '<div class="json-thumb"><div class="json-icon">○</div><div class="json-keys">sin output</div></div>'
+            cards_html.append(f'''
+              <a class="run-tile" href="/run/{flow["id"]}/{run_id}">
+                <div class="run-tile-preview">{preview_html}</div>
+                <div class="run-tile-meta">
+                  <div class="run-tile-status">{badge(status)} <span class="muted" style="margin-left:6px">{dur_text}</span></div>
+                  <div class="muted" style="font-size:11px;margin-top:4px">{html.escape(created)}</div>
+                </div>
+              </a>
+            ''')
+        history_visual = '<div class="run-grid">' + ''.join(cards_html) + '</div>'
+    else:
+        history_visual = '<div class="empty"><h4>Aún no hay corridas</h4><div>Ejecuta el flow para ver el historial visual aquí.</div></div>'
+
+    enabled = bool(int(schedule.get('enabled') or 0))
+    schedule_text = (
+        f'⏰ Cada {schedule["interval_seconds"]}s' if enabled and schedule.get('interval_seconds') and not schedule.get('cron_expression') else
+        f'⏰ cron: {html.escape(schedule["cron_expression"])}' if enabled and schedule.get('cron_expression') else
+        '🔕 sin scheduler'
+    )
+
     body = f'''
-    <div class="toolbar"><a class="button ghost" href="/">← Volver</a></div>
-    <div class="two-col">
-      <div>
-        <div class="card">
-          <div class="meta"><span>{html.escape(flow.get('family','general'))}</span></div>
-          <h3 style="margin-top:6px">{html.escape(flow['name'])}</h3>
-          <div class="muted">{html.escape(flow['description'])}</div>
-          <div class="actions">
-            <button class="primary flow-card" onclick="runFlow('{flow['folder']}', this)" data-folder="{flow['folder']}">Ejecutar ahora</button>
-            <a class="button secondary" href="/flow/{flow['folder']}/config">Editar configuración</a>
-          </div>
-          <div class="live-status"></div>
-        </div>
-        <div class="card" style="margin-top:16px">
-          <h3>README del caso</h3>
-          <pre>{html.escape(readme)}</pre>
-        </div>
-      </div>
-      <div>
-        <div class="card">
-          <h3>Manifest</h3>
-          <pre>{html.escape(manifest_text)}</pre>
-        </div>
-        <div class="card" style="margin-top:16px">
-          <h3>Últimas corridas</h3>
-          <table>
-            <thead><tr><th>Run</th><th>Flow</th><th>Estado</th><th>Creado</th><th>Duración</th><th></th></tr></thead>
-            <tbody>{rows}</tbody>
-          </table>
-        </div>
-      </div>
+    <div class="toolbar">
+      <a class="button ghost" href="/">← Volver al inicio</a>
+      <a class="button ghost" href="/flow/{flow['folder']}/config">⚙️ Configurar</a>
     </div>
+
+    <div class="card hero-card">
+      <div class="meta">
+        <span>{html.escape(flow.get('family','general'))}</span>
+        <span>{len(flow.get('steps',[]))} pasos</span>
+        <span class="path">{html.escape(flow['folder'])}</span>
+      </div>
+      <h2 style="margin:6px 0">{html.escape(flow['name'])}</h2>
+      <p class="muted" style="margin:0 0 12px 0;font-size:14px;line-height:1.55">{html.escape(flow['description'] or '')}</p>
+      <div class="actions">
+        <button class="primary flow-card" onclick="runFlow('{flow['folder']}', this)" data-folder="{flow['folder']}">▶ Ejecutar ahora</button>
+        <a class="button secondary" href="/flow/{flow['folder']}/config">Editar configuración</a>
+      </div>
+      <div class="live-status"></div>
+    </div>
+
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:18px 0">
+      <div class="kpi-card"><div class="muted">Corridas registradas</div><div class="kpi-num">{total_runs}</div></div>
+      <div class="kpi-card"><div class="muted">Completadas</div><div class="kpi-num" style="color:var(--success)">{completed}</div></div>
+      <div class="kpi-card"><div class="muted">Falladas</div><div class="kpi-num" style="color:var(--danger)">{failed}</div></div>
+      <div class="kpi-card"><div class="muted">Duración promedio</div><div class="kpi-num">{round(avg_duration, 2)}s</div></div>
+      <div class="kpi-card"><div class="muted">Programación</div><div style="margin-top:6px;font-size:13px">{schedule_text}</div></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">📜 Historial visual de este flow</h3>
+      <p class="muted" style="margin:0 0 14px 0">Mostrando últimas {min(12, total_runs)} corridas. Click sobre una para ver detalle completo de esa ejecución.</p>
+      {history_visual}
+    </div>
+
+    <details class="meta-details" style="margin-top:18px">
+      <summary>📋 README del caso (clic para mostrar)</summary>
+      <pre>{html.escape(readme)}</pre>
+    </details>
+
+    <details class="meta-details" style="margin-top:8px">
+      <summary>🛠️ Manifest completo (JSON declarativo)</summary>
+      <pre>{html.escape(manifest_text)}</pre>
+    </details>
     '''
     return html_page(f'{flow["name"]} · Flujo Autónomo', body)
 
@@ -912,6 +1075,80 @@ def _output_thumb(item: dict) -> str:
     '''
 
 
+def _smart_summary(flow_id: str, context: dict, outputs: list) -> str:
+    """Resumen inteligente y legible según el flow ejecutado.
+
+    Genera un bloque HTML específico para cada tipo de flow, mostrando los
+    datos relevantes en lenguaje humano en vez de un dump JSON crudo.
+    """
+    parts: list[str] = []
+    if flow_id == 'screen_capture_analyze':
+        cap = context.get('capture') or {}
+        ana = context.get('analysis') or {}
+        parts.append(f'<div class="smart-row"><span class="smart-key">Resolución</span><span>{cap.get("width","?")}×{cap.get("height","?")}</span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Método</span><span class="path">{cap.get("method","?")}</span></div>')
+        if ana.get('analyzer'):
+            parts.append(f'<div class="smart-row"><span class="smart-key">Analizador</span><span class="path">{ana.get("analyzer")}</span></div>')
+        if ana.get('avg_brightness') is not None:
+            parts.append(f'<div class="smart-row"><span class="smart-key">Brillo promedio</span><span>{ana.get("avg_brightness")}/255</span></div>')
+        if ana.get('mean_rgb'):
+            r, g, b = ana['mean_rgb'][:3]
+            parts.append(f'<div class="smart-row"><span class="smart-key">RGB promedio</span><span><span class="rgb-swatch" style="background:rgb({int(r)},{int(g)},{int(b)})"></span> ({r}, {g}, {b})</span></div>')
+        if ana.get('visual_state'):
+            parts.append(f'<div class="smart-row"><span class="smart-key">Estado visual</span><span><strong>{ana.get("visual_state")}</strong></span></div>')
+    elif flow_id == 'screen_capture_browser':
+        cap = context.get('capture') or {}
+        parts.append(f'<div class="smart-row"><span class="smart-key">URL capturada</span><span class="path">{html.escape(str(cap.get("url","")))}</span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Título de página</span><span>{html.escape(str(cap.get("title","")))}</span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Viewport</span><span>{cap.get("width","?")}×{cap.get("height","?")}</span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Página completa</span><span>{"sí" if cap.get("full_page") else "solo viewport"}</span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Tamaño PNG</span><span>{round((cap.get("size_bytes",0) or 0)/1024,1)} KB</span></div>')
+    elif flow_id == 'folder_inventory':
+        inv = context.get('inventory') or {}
+        st = context.get('stats') or {}
+        parts.append(f'<div class="smart-row"><span class="smart-key">Carpeta</span><span class="path">{html.escape(str(inv.get("path","")))}</span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Archivos</span><span><strong>{inv.get("total_files",0)}</strong></span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Tamaño total</span><span>{round((st.get("total_size_bytes",0) or 0)/1024,2)} KB</span></div>')
+        by_ext = st.get('by_extension') or {}
+        if by_ext:
+            ext_str = ' · '.join(f'<code>{html.escape(k)}</code> ×{v}' for k, v in sorted(by_ext.items()))
+            parts.append(f'<div class="smart-row"><span class="smart-key">Por extensión</span><span>{ext_str}</span></div>')
+        if st.get('largest_file'):
+            lf = st['largest_file']
+            parts.append(f'<div class="smart-row"><span class="smart-key">Archivo mayor</span><span>{html.escape(str(lf.get("name","")))} ({lf.get("size_bytes",0)} B)</span></div>')
+    elif flow_id == 'document_drop_pipeline':
+        inv = context.get('inventory') or {}
+        summ = (context.get('summary') or {}).get('summaries') or []
+        parts.append(f'<div class="smart-row"><span class="smart-key">Carpeta procesada</span><span class="path">{html.escape(str(inv.get("path","")))}</span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Archivos leídos</span><span>{len(summ)}</span></div>')
+        if summ:
+            files_html = ''.join(f'<li><strong>{html.escape(s.get("name",""))}</strong> <span class="muted">({s.get("chars",0)} chars · {s.get("line_count",0)} líneas)</span></li>' for s in summ[:10])
+            parts.append(f'<div class="smart-row"><span class="smart-key">Lista</span><span><ul class="compact-list">{files_html}</ul></span></div>')
+    elif flow_id == 'system_healthcheck':
+        snap = context.get('snapshot') or {}
+        dec = context.get('decision') or {}
+        parts.append(f'<div class="smart-row"><span class="smart-key">CPU</span><span><strong>{snap.get("cpu_percent","?")}%</strong></span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Memoria</span><span><strong>{snap.get("memory_percent","?")}%</strong> ({round((snap.get("memory_used_mb") or 0)/1024,2)} GB usados)</span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Disco</span><span><strong>{snap.get("disk_percent","?")}%</strong> ({snap.get("disk_used_gb","?")} GB)</span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Plataforma</span><span class="path">{html.escape(str(snap.get("platform","?")))}</span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Decisión</span><span><strong>{html.escape(str(dec.get("status","?")))}</strong></span></div>')
+    elif flow_id == 'process_watchdog':
+        top = (context.get('top') or {}).get('processes') or []
+        watch = context.get('watch') or {}
+        parts.append(f'<div class="smart-row"><span class="smart-key">Procesos vistos</span><span>{(context.get("top") or {}).get("total_seen",0)}</span></div>')
+        parts.append(f'<div class="smart-row"><span class="smart-key">Alertas</span><span><strong>{watch.get("alert_count",0)}</strong> superan umbrales</span></div>')
+        if top:
+            top_html = ''.join(
+                f'<tr><td><strong>{html.escape(str(p.get("name","")))}</strong></td>'
+                f'<td><span class="path">PID {p.get("pid","")}</span></td>'
+                f'<td>{p.get("memory_mb",0)} MB</td>'
+                f'<td>{p.get("cpu_percent",0)}%</td></tr>'
+                for p in top[:10]
+            )
+            parts.append(f'<table class="mini-table"><thead><tr><th>Proceso</th><th>PID</th><th>Memoria</th><th>CPU</th></tr></thead><tbody>{top_html}</tbody></table>')
+    return ''.join(parts) if parts else ''
+
+
 def render_run_detail(flow_id: str, run_id: str) -> bytes:
     run = find_run(flow_id, run_id)
     if not run:
@@ -921,54 +1158,112 @@ def render_run_detail(flow_id: str, run_id: str) -> bytes:
     context = safe_json_loads(run.get('context_json')) or {}
     outputs = safe_json_loads(run.get('outputs_json')) or []
     error = safe_json_loads(run.get('error_json'))
-    step_rows = ''.join(
-        f"<tr><td>{index}</td><td><strong>{html.escape(step['step_id'])}</strong></td><td><span class='path'>{html.escape(step['action'])}</span></td><td>{badge(step['status'])}</td><td>{step['attempt']}</td><td>{round(step.get('duration_seconds') or 0, 3)}s</td><td><pre>{html.escape(str(safe_json_loads(step.get('result_json')) or step.get('error_text') or '')[:600])}</pre></td></tr>"
-        for index, step in enumerate(steps, start=1)
-    ) or '<tr><td colspan="7" class="empty">Sin pasos</td></tr>'
-    output_thumbs = ''.join(_output_thumb(item) for item in outputs if isinstance(item, dict) and item.get('path')) or '<div class="empty"><h4>Sin salidas físicas</h4><div>Este run no generó archivos en disco.</div></div>'
+
+    # Imagen prominente (si hay)
+    primary_image = None
+    other_outputs: list[dict] = []
+    for o in outputs:
+        if not isinstance(o, dict) or not o.get('path'):
+            continue
+        if (o.get('path') or '').lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')) and primary_image is None:
+            primary_image = o
+        else:
+            other_outputs.append(o)
+
+    hero_image_html = ''
+    if primary_image:
+        file_url = f"/file?path={html.escape(primary_image['path'])}"
+        size_kb = round((primary_image.get('size_bytes', 0) or 0) / 1024, 1)
+        hero_image_html = f'''
+        <div class="card hero-image-card" onclick="openImageLightbox('{file_url}', '{html.escape(primary_image["name"])}')">
+          <img src="{file_url}" alt="{html.escape(primary_image["name"])}" loading="lazy" />
+          <div class="hero-image-meta">
+            <span class="path">{html.escape(primary_image["name"])}</span>
+            <span class="muted">{size_kb} KB · click para ver en grande</span>
+          </div>
+        </div>
+        '''
+
+    # Resumen inteligente (legible humano)
+    smart_html = _smart_summary(flow_id, context, outputs)
+    smart_block = f'<div class="card" style="margin-top:16px"><h3 style="margin-top:0">📊 Qué pasó en esta corrida</h3><div class="smart-summary">{smart_html}</div></div>' if smart_html else ''
+
+    # Steps row con click para ver resultado completo
+    step_rows = ''
+    for index, step in enumerate(steps, start=1):
+        result = safe_json_loads(step.get('result_json')) or step.get('error_text') or ''
+        result_str = json.dumps(result, ensure_ascii=False, indent=2) if isinstance(result, (dict, list)) else str(result)
+        result_short = result_str[:140] + ('…' if len(result_str) > 140 else '')
+        step_rows += (
+            f'<tr onclick="showStepResult({index}, this)">'
+            f'<td>{index}</td>'
+            f'<td><strong>{html.escape(step["step_id"])}</strong></td>'
+            f'<td><span class="path">{html.escape(step["action"])}</span></td>'
+            f'<td>{badge(step["status"])}</td>'
+            f'<td>{round(step.get("duration_seconds") or 0, 3)}s</td>'
+            f'<td><span class="muted">{html.escape(result_short)}</span></td>'
+            f'<td><script type="application/json" class="step-data">{html.escape(result_str)}</script><span class="muted" style="font-size:11px">▼</span></td>'
+            f'</tr>'
+        )
+    if not step_rows:
+        step_rows = '<tr><td colspan="7" class="empty">Sin pasos</td></tr>'
+
+    # Otras salidas (no la imagen hero)
+    other_thumbs_html = ''.join(_output_thumb(item) for item in other_outputs)
+
+    # Eventos colapsables
     event_lines = []
     for event in events:
         payload = safe_json_loads(event.get('payload_json'))
         event_lines.append({'event_time': event.get('event_time'), 'event_type': event.get('event_type'), 'payload': payload})
+
     duration = run.get('duration_seconds')
     duration_text = f'{round(duration, 3)} s' if duration is not None else '—'
+    created = (run.get('created_at') or '')[:19].replace('T', ' ')
+
     body = f'''
-    <div class="toolbar"><a class="button ghost" href="/">← Volver al inicio</a><a class="button ghost" href="/flow/{run.get('flow_folder', '')}">Ver flow</a></div>
-    <div class="card">
+    <div class="toolbar">
+      <a class="button ghost" href="/">← Inicio</a>
+      <a class="button ghost" href="/flow/{run.get('flow_folder', '')}">📋 Ver historial completo de {html.escape(run['flow_name'])}</a>
+    </div>
+
+    <div class="card hero-card">
       <div class="meta">{badge(run['status'])} <span>{html.escape(run['flow_name'])}</span></div>
-      <h3 style="margin-top:6px">Detalle de corrida</h3>
+      <h2 style="margin:6px 0 8px 0">Resultado de la corrida</h2>
       <div class="meta">
         <span class="path">{html.escape(run['run_id'])}</span>
-        <span>Duración: {duration_text}</span>
-        <span>Creado: {html.escape(str(run.get('created_at') or ''))}</span>
+        <span>⏱️ {duration_text}</span>
+        <span>📅 {html.escape(created)}</span>
       </div>
-      {('<div class="card" style="margin-top:12px;background:var(--danger-soft);border-color:#fecaca;color:var(--danger)"><strong>Error:</strong> ' + html.escape(json.dumps(error, ensure_ascii=False)) + '</div>') if error else ''}
+      {('<div style="margin-top:12px;padding:12px 16px;background:var(--danger-soft);border-radius:10px;color:var(--danger)"><strong>Error:</strong> ' + html.escape(json.dumps(error, ensure_ascii=False)) + '</div>') if error else ''}
     </div>
-    <div class="two-col" style="margin-top:18px">
-      <div>
-        <div class="card">
-          <h3>Acciones ejecutadas</h3>
-          <table class="steps">
-            <thead><tr><th>#</th><th>Paso</th><th>Acción</th><th>Estado</th><th>Intento</th><th>Duración</th><th>Resultado</th></tr></thead>
-            <tbody>{step_rows}</tbody>
-          </table>
-        </div>
-        <div class="card" style="margin-top:16px">
-          <h3>Eventos técnicos</h3>
-          <pre>{html.escape(json.dumps(event_lines, ensure_ascii=False, indent=2))}</pre>
-        </div>
-      </div>
-      <div>
-        <div class="card">
-          <h3>Capturas y archivos generados</h3>
-          <div class="thumb-grid">{output_thumbs}</div>
-        </div>
-        <div class="card" style="margin-top:16px">
-          <h3>Datos finales obtenidos</h3>
-          <pre>{html.escape(json.dumps(context, ensure_ascii=False, indent=2))}</pre>
-        </div>
-      </div>
+
+    {hero_image_html}
+    {smart_block}
+
+    {f'<div class="card" style="margin-top:16px"><h3 style="margin-top:0">📂 Otros archivos generados</h3><div class="thumb-grid">{other_thumbs_html}</div></div>' if other_thumbs_html else ''}
+
+    <div class="card" style="margin-top:16px">
+      <h3 style="margin-top:0">⚙️ Pasos ejecutados</h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:12px">Click en una fila para ver el resultado completo del paso.</p>
+      <table class="steps clickable">
+        <thead><tr><th>#</th><th>Paso</th><th>Acción</th><th>Estado</th><th>Duración</th><th>Resultado (preview)</th><th></th></tr></thead>
+        <tbody id="steps-tbody">{step_rows}</tbody>
+      </table>
     </div>
+
+    <details class="meta-details" style="margin-top:14px">
+      <summary>📋 Datos finales completos del contexto (JSON)</summary>
+      <pre>{html.escape(json.dumps(context, ensure_ascii=False, indent=2))}</pre>
+    </details>
+
+    <details class="meta-details" style="margin-top:8px">
+      <summary>🔧 Eventos técnicos detallados ({len(event_lines)} eventos)</summary>
+      <pre>{html.escape(json.dumps(event_lines, ensure_ascii=False, indent=2))}</pre>
+    </details>
+
+    <div id="lightbox" class="lightbox" onclick="closeLightbox()"></div>
+    <div id="step-modal" class="modal-bg" style="display:none" onclick="closeStepModal()"></div>
     '''
     return html_page(f'Run {run_id}', body)
 

@@ -32,23 +32,35 @@ def extract_existing_paths(data: Any) -> list[dict[str, Any]]:
             return
         if not isinstance(value, str):
             return
-        candidate = Path(value)
-        if not candidate.exists() or not candidate.is_file():
+        # Heurística rápida: paths reales rara vez pasan de ~260 chars en
+        # Windows o ~4096 en Linux. Strings largos (descripciones, JSON
+        # serializados) NO son paths — saltamos para evitar OSError
+        # ENAMETOOLONG al llamar Path.exists() en Linux.
+        if len(value) > 260 or '\n' in value:
             return
         try:
+            candidate = Path(value)
+            if not candidate.exists() or not candidate.is_file():
+                return
             resolved = candidate.resolve()
             resolved.relative_to(output_root)
         except (ValueError, OSError):
+            # ValueError: no está bajo output_root
+            # OSError: nombre muy largo, ruta inválida, permisos, etc.
             return
         key = str(resolved)
         if key in seen:
             return
         seen.add(key)
+        try:
+            size = candidate.stat().st_size
+        except OSError:
+            return
         found.append(
             {
                 'path': str(candidate),
                 'name': candidate.name,
-                'size_bytes': candidate.stat().st_size,
+                'size_bytes': size,
                 'source': trail,
             }
         )
