@@ -365,18 +365,60 @@ async function pollStatus(runId, card, btn, flowId) {
     await new Promise(r => setTimeout(r, 700));
   }
 }
-function askUrlForFlow12() {
+function askFolderForFlow03() {
+  return new Promise(resolve => {
+    const suggestions = ['data/inbox', 'data/dropbox/inbox', 'output/reports', 'output/screenshots', 'docs', 'flows'];
+    const sugBtns = suggestions.map(s =>
+      `<button type="button" class="ghost" style="font-size:12px;padding:4px 10px"
+         onclick="document.getElementById('folder-input').value='${s}'">${s}</button>`
+    ).join(' ');
+    const html = `<div id="folder-modal" class="modal-bg">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-head"><h3>📁 ¿Qué carpeta querés explorar?</h3>
+          <button onclick="document.getElementById('folder-modal').remove();window._flow03Resolve&&window._flow03Resolve(null)">✕</button></div>
+        <div class="modal-body">
+          <p style="margin-top:0;color:var(--muted);font-size:13px">Escribí la ruta relativa al workspace (data/...) o absoluta (C:\\\\Users\\\\...).</p>
+          <input id="folder-input" type="text" placeholder="data/inbox" value="data/inbox" style="width:100%" autofocus />
+          <div style="margin-top:10px">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Sugerencias rápidas:</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">${sugBtns}</div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button class="ghost" onclick="document.getElementById('folder-modal').remove();window._flow03Resolve&&window._flow03Resolve(null)">Cancelar</button>
+            <button class="primary" id="folder-submit">Ejecutar</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+    const input = document.getElementById('folder-input');
+    const submit = document.getElementById('folder-submit');
+    window._flow03Resolve = (val) => { window._flow03Resolve = null; resolve(val); };
+    const accept = () => {
+      const v = (input.value || '').trim();
+      document.getElementById('folder-modal').remove();
+      window._flow03Resolve(v || null);
+    };
+    submit.addEventListener('click', accept);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); accept(); }
+      if (e.key === 'Escape') { e.preventDefault(); document.getElementById('folder-modal').remove(); window._flow03Resolve(null); }
+    });
+    setTimeout(() => input.focus(), 50);
+  });
+}
+function askUrlForFlow02() {
   return new Promise(resolve => {
     const html = `<div id="url-modal" class="modal-bg">
       <div class="modal" onclick="event.stopPropagation()">
         <div class="modal-head"><h3>🌐 ¿Qué página querés capturar?</h3>
-          <button onclick="document.getElementById('url-modal').remove();window._flow12Resolve&&window._flow12Resolve(null)">✕</button></div>
+          <button onclick="document.getElementById('url-modal').remove();window._flow02Resolve&&window._flow02Resolve(null)">✕</button></div>
         <div class="modal-body">
           <p style="margin-top:0;color:var(--muted);font-size:13px">Pega una URL completa (https://...) o una ruta local relativa al workspace (data/web/control_page.html).</p>
           <input id="url-input" type="text" placeholder="https://example.com  o  data/web/control_page.html" value="data/web/control_page.html"
             style="width:100%" autofocus />
           <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
-            <button class="ghost" onclick="document.getElementById('url-modal').remove();window._flow12Resolve&&window._flow12Resolve(null)">Cancelar</button>
+            <button class="ghost" onclick="document.getElementById('url-modal').remove();window._flow02Resolve&&window._flow02Resolve(null)">Cancelar</button>
             <button class="primary" id="url-submit">Capturar</button>
           </div>
         </div>
@@ -385,16 +427,16 @@ function askUrlForFlow12() {
     document.body.insertAdjacentHTML('beforeend', html);
     const input = document.getElementById('url-input');
     const submit = document.getElementById('url-submit');
-    window._flow12Resolve = (val) => { window._flow12Resolve = null; resolve(val); };
+    window._flow02Resolve = (val) => { window._flow02Resolve = null; resolve(val); };
     const accept = () => {
       const v = (input.value || '').trim();
       document.getElementById('url-modal').remove();
-      window._flow12Resolve(v || null);
+      window._flow02Resolve(v || null);
     };
     submit.addEventListener('click', accept);
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); accept(); }
-      if (e.key === 'Escape') { e.preventDefault(); document.getElementById('url-modal').remove(); window._flow12Resolve(null); }
+      if (e.key === 'Escape') { e.preventDefault(); document.getElementById('url-modal').remove(); window._flow02Resolve(null); }
     });
     setTimeout(() => input.focus(), 50);
   });
@@ -408,22 +450,31 @@ async function runFlow(folder, btn, opts) {
   // Caso especial flow 12: tomar la URL del input inline si existe;
   // si vino por atajo (opts.fromShortcut) y no hay input visible, abrir modal.
   let body = null;
-  if (folder === '12_screen_capture_browser') {
-    const inlineInput = card.querySelector('.flow12-url');
+  if (folder === '02_screen_capture_browser') {
+    const inlineInput = card.querySelector('.flow02-url');
     let url = inlineInput ? (inlineInput.value || '').trim() : '';
     if (!url || opts.fromShortcut) {
-      url = await askUrlForFlow12();
+      url = await askUrlForFlow02();
       if (!url) return;
     }
     body = JSON.stringify({ context_overrides: { target_url: url } });
+  }
+  if (folder === '03_folder_inventory') {
+    const inlineInput = card.querySelector('.flow03-folder');
+    let path = inlineInput ? (inlineInput.value || '').trim() : '';
+    if (!path || opts.fromShortcut) {
+      path = await askFolderForFlow03();
+      if (!path) return;
+    }
+    body = JSON.stringify({ context_overrides: { path_override: path } });
   }
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Iniciando…';
   status.innerHTML = '<span class="badge running"><span class="dot"></span>iniciando</span>';
   try {
-    const opts = { method: 'POST' };
-    if (body) { opts.headers = {'Content-Type': 'application/json'}; opts.body = body; }
-    const res = await fetch('/api/run/' + encodeURIComponent(folder), opts);
+    const fetchOpts = { method: 'POST' };
+    if (body) { fetchOpts.headers = {'Content-Type': 'application/json'}; fetchOpts.body = body; }
+    const res = await fetch('/api/run/' + encodeURIComponent(folder), fetchOpts);
     const data = await res.json();
     if (data.ok && data.run_id) {
       btn.innerHTML = '<span class="spinner"></span> En curso…';
@@ -587,14 +638,23 @@ def _flow_card_run_tab(flow: dict, latest: dict | None, index: int) -> str:
     shortcut = _SHORTCUT_LABELS[index] if index < len(_SHORTCUT_LABELS) else ''
     shortcut_html = f'<span class="kbd-hint"><kbd>{shortcut}</kbd></span>' if shortcut else ''
 
-    # Caso especial: flow 12 lleva input inline para la URL a capturar
+    # Caso especial: flow 02 (browser) lleva input inline para la URL a capturar
+    # Caso especial: flow 03 (inventory) lleva input inline para la carpeta a explorar
     inline_input_html = ''
-    if flow['folder'] == '12_screen_capture_browser':
+    if flow['folder'] == '02_screen_capture_browser':
         inline_input_html = '''
       <div style="margin-top:10px">
         <label style="font-size:12px;color:var(--muted);margin:0 0 4px 0">🌐 URL o ruta local a capturar</label>
-        <input class="flow12-url" type="text" placeholder="https://example.com  o  data/web/control_page.html"
+        <input class="flow02-url" type="text" placeholder="https://example.com  o  data/web/control_page.html"
                value="data/web/control_page.html" style="font-size:13px" />
+      </div>
+        '''
+    elif flow['folder'] == '03_folder_inventory':
+        inline_input_html = '''
+      <div style="margin-top:10px">
+        <label style="font-size:12px;color:var(--muted);margin:0 0 4px 0">📁 Carpeta a explorar</label>
+        <input class="flow03-folder" type="text" placeholder="data/inbox  o  C:\\\\Users\\\\..."
+               value="data/inbox" style="font-size:13px" />
       </div>
         '''
 

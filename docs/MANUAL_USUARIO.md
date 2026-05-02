@@ -26,7 +26,7 @@
 
 > Esto es **toda la pantalla del PC**: incluye Chrome con cualquier página, la barra de tareas de Windows, los iconos del escritorio, etc. Lo que ves arriba es lo que tenía mi pantalla cuando ejecuté el flow 01.
 
-### Caso 12 — captura del navegador headless
+### Caso 02 — captura del navegador headless
 
 ![Captura del navegador headless](manual_screenshots/12_navegador.png)
 
@@ -124,8 +124,8 @@ $ python -c "from engine.database import init_db, list_schedules; init_db(); pri
 flujo run flows/01_screen_capture_analyze
 # → output/screenshots/screen_<ts>.png  (1920×1080, todo el escritorio)
 
-# Caso 12: captura solo el navegador con Playwright headless
-flujo run flows/12_screen_capture_browser
+# Caso 02: captura solo el navegador con Playwright headless
+flujo run flows/02_screen_capture_browser
 # → output/screenshots/browser_page_<ts>.png  (1280×800, solo el DOM renderizado)
 ```
 

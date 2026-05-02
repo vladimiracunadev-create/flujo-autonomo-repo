@@ -1,4 +1,4 @@
-# 🌐 12 · Captura del navegador (Playwright headless)
+# 🌐 02 · Captura del navegador (Playwright headless)
 
 > Usa Playwright + Chromium headless para capturar SOLO el contenido renderizado de una URL o archivo HTML local. NO captura el escritorio.
 
@@ -80,5 +80,5 @@ Repo upstream: <https://github.com/microsoft/playwright-python>
 ## ⚡ Ejecución
 
 ```bash
-flujo run flows/12_screen_capture_browser
+flujo run flows/02_screen_capture_browser
 ```

@@ -117,7 +117,7 @@ flujo-validate
 | Caso | Familia | Propósito |
 | --- | --- | --- |
 | `📷 01_screen_capture_analyze` | pantalla | captura pantalla y genera análisis local |
-| `👁️ 02_screen_watchdog_rules` | pantalla | evalúa reglas sobre estado visual |
+| `🌐 02_screen_capture_browser` | navegador | captura DOM con Playwright headless (sin escritorio) |
 | `📁 03_folder_inventory` | filesystem | inventario y estadísticas de carpeta |
 | `📄 04_document_drop_pipeline` | documentos | pipeline de entrada documental |
 | `🖥️ 05_system_healthcheck` | sistema | snapshot y reglas de salud del equipo |

@@ -32,7 +32,7 @@ La documentación usa dos niveles:
 | # | Caso | Familia | Win | Linux | macOS | Headless | Internet | Tesseract | pyautogui | Detalle |
 | - | ---- | ------- | --- | ----- | ----- | -------- | -------- | --------- | --------- | ------- |
 | 01 | 📷 [screen_capture_analyze](../flows/01_screen_capture_analyze/README.md) | pantalla | ✅ | ✅ | ✅ | ❌ | ❌ | ⚠️ solo si `analyzer=ocr` | ❌ | Sesión gráfica obligatoria |
-| 02 | 👁️ [screen_watchdog_rules](../flows/02_screen_watchdog_rules/README.md) | pantalla | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | Sesión gráfica |
+| 02 | 🌐 [screen_capture_browser](../flows/02_screen_capture_browser/README.md) | navegador | ✅ | ✅ | ✅ | ✅ | ⚠️ si URL externa | ❌ | ❌ | Playwright headless captura DOM puro |
 | 03 | 📁 [folder_inventory](../flows/03_folder_inventory/README.md) | filesystem | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | **Solo stdlib. Más portable.** |
 | 04 | 📄 [document_drop_pipeline](../flows/04_document_drop_pipeline/README.md) | documentos | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | Solo lee texto plano |
 | 05 | 🖥️ [system_healthcheck](../flows/05_system_healthcheck/README.md) | sistema | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | psutil. **Más rápido (~0.7s)** |
