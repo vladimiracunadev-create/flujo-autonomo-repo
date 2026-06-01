@@ -1,7 +1,7 @@
 # Cotas de seguridad: piso explícito = primera versión sin CVE conocida al
 # corte de la auditoría 2026-06-01. Para reproducibilidad estricta usar
 # `uv export` (lockfile en CI) — este archivo solo fija un piso seguro.
-Pillow>=10.3.0,<12
+Pillow>=12.2.0,<13
 psutil>=5.9.8,<7
 requests>=2.32.2,<3
 mss>=9.0.1,<11
