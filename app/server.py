@@ -1509,23 +1509,26 @@ class AppHandler(BaseHTTPRequestHandler):
         if path == '/file':
             params = parse_qs(parsed.query)
             rel = unquote(params.get('path', [''])[0])
-            # Anti path-traversal (CWE-22). Sanitizer INLINE — CodeQL no
-            # rastrea taint a través de funciones helper, así que la
-            # validación tiene que vivir aquí mismo. Patrón canónico:
-            # normpath()+startswith() sobre prefijo absoluto. Bloquea ..,
-            # symlinks (vía realpath) y rutas en drives distintos.
+            # Anti path-traversal (CWE-22). Patrón inline reconocido por
+            # CodeQL py/path-injection (ver ejemplo canónico de la regla):
+            # normalizar el path JOIN-eado y exigir prefijo absoluto.
             if not rel:
                 return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
-            root_real = os.path.realpath(str(ROOT))
-            base = rel if os.path.isabs(rel) else os.path.join(root_real, rel)
-            try:
-                fullpath = os.path.realpath(base)
-            except (OSError, ValueError):
+            # Allowlist mínima de caracteres en el path relativo, antes de
+            # tocar el filesystem. Bloquea NUL bytes y otros chars raros.
+            if '\x00' in rel or any(ord(c) < 32 for c in rel):
                 return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
-            # Prefijo terminado en separador para evitar bypass por
-            # sibling-prefix tipo `ROOT-evil` que startswith ROOT.
-            root_prefix = root_real + os.sep
-            if not (fullpath == root_real or fullpath.startswith(root_prefix)):
+            base_path = os.path.realpath(str(ROOT))
+            # Rechazamos paths absolutos: el cliente pide siempre rutas
+            # relativas a la raíz del proyecto. Esto simplifica el sanitizer
+            # y elimina el caso `C:\Windows\System32`.
+            if os.path.isabs(rel):
+                return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
+            fullpath = os.path.normpath(os.path.join(base_path, rel))
+            # Patrón canónico CodeQL: startswith sobre prefijo absoluto.
+            # Sumamos os.sep para cerrar el bypass por sibling-prefix
+            # (`/.../repo-evil` startswith `/.../repo`).
+            if not fullpath.startswith(base_path + os.sep):
                 return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
             if not os.path.isfile(fullpath):
                 return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
