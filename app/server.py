@@ -4,6 +4,7 @@ import hmac
 import html
 import json
 import mimetypes
+import os.path
 import re
 import threading
 from http import HTTPStatus
@@ -52,6 +53,30 @@ def _safe_folder(raw: str) -> str | None:
     if not raw or not _FOLDER_RE.match(raw):
         return None
     return raw
+
+
+def _resolve_under_root(user_path: str) -> Path | None:
+    """Resuelve ``user_path`` y garantiza que queda bajo ROOT.
+
+    Devuelve un ``Path`` absoluto seguro o ``None`` si está fuera de ROOT,
+    no existe, o la ruta no se puede normalizar. Usa el patrón
+    ``realpath`` + ``commonpath`` que CodeQL reconoce como sanitizer
+    de py/path-injection.
+    """
+    if not user_path:
+        return None
+    root_real = os.path.realpath(str(ROOT))
+    base = user_path if os.path.isabs(user_path) else os.path.join(root_real, user_path)
+    try:
+        target_real = os.path.realpath(base)
+        # commonpath lanza ValueError si target/root están en drives
+        # distintos (Windows) o si alguno es vacío. Cualquier excepción
+        # → tratar como ruta inválida.
+        if os.path.commonpath([target_real, root_real]) != root_real:
+            return None
+    except (OSError, ValueError):
+        return None
+    return Path(target_real)
 
 
 SCHEDULER = SchedulerService(loop_sleep_seconds=2.0)
@@ -1484,28 +1509,24 @@ class AppHandler(BaseHTTPRequestHandler):
         if path == '/file':
             params = parse_qs(parsed.query)
             rel = unquote(params.get('path', [''])[0])
-            # Anti path-traversal (CWE-22):
-            #  - resolvemos a absoluta, luego usamos is_relative_to() en lugar
-            #    de startswith() (que en Windows era case-sensitive y permitía
-            #    bypass por prefijo: `/dev/flujo-autonomo-repo-evil/x`
-            #    cumplía `startswith('/dev/flujo-autonomo-repo')`).
-            try:
-                raw = Path(rel)
-                target = raw.resolve() if raw.is_absolute() else (ROOT / raw).resolve()
-                root_resolved = ROOT.resolve()
-            except (OSError, ValueError):
+            # Anti path-traversal (CWE-22). Patrón canónico que CodeQL
+            # reconoce como sanitizer (py/path-injection):
+            #   1) realpath() normaliza '..' y resuelve symlinks
+            #   2) commonpath() valida que el target queda contenido bajo ROOT
+            #      (lanza ValueError si están en drives distintos en Windows)
+            # is_relative_to() haría lo mismo pero CodeQL no lo modela.
+            safe_target = _resolve_under_root(rel)
+            if safe_target is None:
                 return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
-            if not target.is_relative_to(root_resolved):
-                return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
-            if not target.exists() or not target.is_file():
+            if not safe_target.exists() or not safe_target.is_file():
                 return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
             # Allowlist de extensiones: bloqueamos contenido ejecutable por
             # browser desde el mismo origen (CWE-79 reflejada).
-            ext = target.suffix.lower()
+            ext = safe_target.suffix.lower()
             if ext in {'.html', '.htm', '.xhtml', '.xml', '.svg', '.js', '.mjs', '.css'}:
                 return self._send_html(html_page('Tipo no permitido', '<div class="empty"><h4>Extensión no servida</h4></div>'), status=415)
-            mime, _ = mimetypes.guess_type(str(target))
-            content = target.read_bytes()
+            mime, _ = mimetypes.guess_type(str(safe_target))
+            content = safe_target.read_bytes()
             self.send_response(HTTPStatus.OK)
             self.send_header('Content-Type', mime or 'application/octet-stream')
             self.send_header('Content-Length', str(len(content)))
