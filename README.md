@@ -12,14 +12,14 @@
 ![Playwright](https://img.shields.io/badge/Playwright-headless%20%2B%20visible-2EAD33?logo=playwright&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-historial-003B57?logo=sqlite&logoColor=white)
 ![uv](https://img.shields.io/badge/packaging-uv-DE5FE9?logo=astral&logoColor=white)
-![pytest](https://img.shields.io/badge/tests-79%20pytest-3DA639?logo=pytest&logoColor=white)
+![pytest](https://img.shields.io/badge/tests-90%20pytest-3DA639?logo=pytest&logoColor=white)
 ![Local First](https://img.shields.io/badge/local--first-sí-2D7A66)
 
 [![CI](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/ci.yml)
 [![Security](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/security.yml)
 [![Workflow security](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/workflow-security.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/workflow-security.yml)
 [![License](https://img.shields.io/badge/license-MIT-15803d.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.0-0f766e)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.0-0f766e)](CHANGELOG.md)
 [![Security policy](https://img.shields.io/badge/security-policy-7c3aed.svg)](SECURITY.md)
 
 </div>
