@@ -1509,24 +1509,34 @@ class AppHandler(BaseHTTPRequestHandler):
         if path == '/file':
             params = parse_qs(parsed.query)
             rel = unquote(params.get('path', [''])[0])
-            # Anti path-traversal (CWE-22). Patrón canónico que CodeQL
-            # reconoce como sanitizer (py/path-injection):
-            #   1) realpath() normaliza '..' y resuelve symlinks
-            #   2) commonpath() valida que el target queda contenido bajo ROOT
-            #      (lanza ValueError si están en drives distintos en Windows)
-            # is_relative_to() haría lo mismo pero CodeQL no lo modela.
-            safe_target = _resolve_under_root(rel)
-            if safe_target is None:
+            # Anti path-traversal (CWE-22). Sanitizer INLINE — CodeQL no
+            # rastrea taint a través de funciones helper, así que la
+            # validación tiene que vivir aquí mismo. Patrón canónico:
+            # normpath()+startswith() sobre prefijo absoluto. Bloquea ..,
+            # symlinks (vía realpath) y rutas en drives distintos.
+            if not rel:
                 return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
-            if not safe_target.exists() or not safe_target.is_file():
+            root_real = os.path.realpath(str(ROOT))
+            base = rel if os.path.isabs(rel) else os.path.join(root_real, rel)
+            try:
+                fullpath = os.path.realpath(base)
+            except (OSError, ValueError):
+                return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
+            # Prefijo terminado en separador para evitar bypass por
+            # sibling-prefix tipo `ROOT-evil` que startswith ROOT.
+            root_prefix = root_real + os.sep
+            if not (fullpath == root_real or fullpath.startswith(root_prefix)):
+                return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
+            if not os.path.isfile(fullpath):
                 return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
             # Allowlist de extensiones: bloqueamos contenido ejecutable por
             # browser desde el mismo origen (CWE-79 reflejada).
-            ext = safe_target.suffix.lower()
+            ext = os.path.splitext(fullpath)[1].lower()
             if ext in {'.html', '.htm', '.xhtml', '.xml', '.svg', '.js', '.mjs', '.css'}:
                 return self._send_html(html_page('Tipo no permitido', '<div class="empty"><h4>Extensión no servida</h4></div>'), status=415)
-            mime, _ = mimetypes.guess_type(str(safe_target))
-            content = safe_target.read_bytes()
+            mime, _ = mimetypes.guess_type(fullpath)
+            with open(fullpath, 'rb') as fh:
+                content = fh.read()
             self.send_response(HTTPStatus.OK)
             self.send_header('Content-Type', mime or 'application/octet-stream')
             self.send_header('Content-Length', str(len(content)))
