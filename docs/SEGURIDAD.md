@@ -88,6 +88,63 @@ curl -X POST -H "X-Flujo-Token: $FLUJO_WEBHOOK_TOKEN" \
 
 Si vas a exponerlo más allá de localhost, ponlo detrás de un reverse proxy con TLS y autorización adicional.
 
+La comparación del token usa `hmac.compare_digest` (constant-time, CWE-208).
+
+---
+
+## 🛂 Autorización Del Panel HTTP (post-2026-06)
+
+Todos los endpoints `POST` mutadores (`/api/run/`, `/run`, `/flow/<folder>/config`, `/flow/<folder>/schedule`, `/api/form/submit`) pasan por `_authorize_mutation` antes de ejecutar. Tiene dos modos:
+
+### Modo 1 — Token explícito (recomendado para máquinas compartidas)
+
+Si la variable de entorno `FLUJO_PANEL_TOKEN` está definida, **toda** mutación exige el header `X-Flujo-Token` con valor exacto:
+
+```bash
+export FLUJO_PANEL_TOKEN=$(openssl rand -hex 32)
+curl -X POST -H "X-Flujo-Token: $FLUJO_PANEL_TOKEN" \
+     http://127.0.0.1:8787/api/run/05_system_healthcheck
+```
+
+Sin el header o con valor distinto → `401 Unauthorized` (comparación constant-time).
+
+### Modo 2 — Sin token (panel local sin fricción, default)
+
+Cuando `FLUJO_PANEL_TOKEN` no está seteado, se aplican defensas anti-CSRF y anti-DNS-rebinding:
+
+1. El header `Host` debe ser loopback (`127.0.0.1`, `localhost`, `[::1]`).
+2. Si la request trae `Origin`, debe igualar `http://<Host>`.
+3. Si trae `Referer`, debe empezar con `http://<Host>/`.
+
+Esto bloquea el caso real: un sitio web malicioso visitado por el operador que intenta `fetch('http://127.0.0.1:8787/api/run/X')` — el browser siempre envía `Origin` en fetch cross-site, así que es rechazado con 401. Scripts locales (curl, tests) que no envían `Origin` siguen funcionando.
+
+> [!IMPORTANT]
+> Si vas a binder el panel a una IP no loopback, **es obligatorio** setear `FLUJO_PANEL_TOKEN`. El modo 2 asume loopback y rechaza el resto.
+
+---
+
+## 🚫 Lo Que `ui.launch_process` Ya No Hace
+
+Desde la auditoría 2026-06, el parámetro `shell=True` está **deshabilitado por código** y lanza `ValueError`. Razón: cualquier flow que aceptara `shell=True` con un `command` parcialmente proveniente de contexto (vía `context_overrides` del panel, vía webhook, vía variable rendered) era RCE directa (CWE-78). Si necesitás argumentos complejos, pasalos como string tokenizable por `shlex.split`.
+
+```jsonc
+// ✅ permitido
+{"action": "ui.launch_process", "params": {"command": "notepad C:\\Users\\me\\nota.txt"}}
+
+// ❌ rechazado en runtime con ValueError
+{"action": "ui.launch_process", "params": {"command": "...", "shell": true}}
+```
+
+---
+
+## 📁 Endpoint `/file` Endurecido
+
+`GET /file?path=<rel_o_abs>` sirve archivos del workspace para previews del panel. Tras la auditoría 2026-06:
+
+- Validación de ruta usa `Path.is_relative_to(ROOT.resolve())` (antes: `str.startswith`, vulnerable a bypass por prefijo `*-evil`).
+- Allowlist de extensiones servibles: bloquea `.html .htm .xhtml .xml .svg .js .mjs .css` para impedir XSS reflejado desde el mismo origen.
+- Respuesta lleva `X-Content-Type-Options: nosniff`.
+
 ---
 
 ## ⚠️ Superficies Sensibles
@@ -96,7 +153,7 @@ Si vas a exponerlo más allá de localhost, ponlo detrás de un reverse proxy co
 | --- | --- | --- |
 | 📁 Filesystem | leer, mover o escribir archivos | `allowed_paths` por flow + `.gitignore` para salidas |
 | 🖱️ UI automation | clicks, hotkeys y escritura | `dry_run` en acciones UI críticas |
-| ⚙️ Procesos | ejecución local | `ui.launch_process` con `shell=false` por defecto |
+| ⚙️ Procesos | ejecución local | `ui.launch_process` con `shell=True` **rechazado por código** (post-2026-06) |
 | 🌐 Red | requests HTTP | acción explícita; los webhooks salientes resuelven token vía `@secret:` |
 | 📷 Pantalla | captura visible | ejecución local y archivos ignorados |
 | 👁️ Visión externa | envío de imágenes | proveedor configurable y `mock` por defecto en pruebas |
@@ -186,9 +243,27 @@ Para la política completa con SHAs activos y procedimiento de revisión, ver [S
 
 ## 🎁 Alcance Actual
 
-La 0.2.0 agrega sandbox declarativo, secretos y webhook autenticado. Para uso multiusuario, integración empresarial o ejecución de manifests no confiables haría falta:
+La 0.2.0 agrega sandbox declarativo, secretos y webhook autenticado. La auditoría 2026-06 endurece el panel (CSRF, path traversal, XSS, shell injection). Para uso multiusuario, integración empresarial o ejecución de manifests no confiables todavía haría falta:
 
 - aislamiento OS-level por acción (subproceso restringido, contenedor);
-- autenticación del panel (más allá del token de webhook);
-- perfiles de permisos por usuario;
+- perfiles de permisos por usuario en el panel (hoy es token único);
 - auditoría firmada y verificación de integridad de manifests.
+
+---
+
+## 📋 Auditoría 2026-06 — Hallazgos Y Fixes
+
+Resumen de la auditoría interna del 2026-06-01 y su cierre:
+
+| # | Severidad | CWE | Hallazgo | Fix aplicado |
+| --- | --- | --- | --- | --- |
+| 1 | 🔴 Crítica | 352 + 78 | CSRF en POSTs → RCE vía `launch_process` o `set_flow_config` | `_authorize_mutation` (token o Origin loopback) |
+| 2 | 🔴 Crítica | 78 | `subprocess.Popen(command, shell=True)` en `ui.launch_process` | Rama eliminada; `shell=True` lanza `ValueError` |
+| 3 | 🟠 Alta | 306 | `/api/run/`, `/run`, `/flow/.../config`, `/flow/.../schedule`, `/api/form/submit` sin auth | Mismo `_authorize_mutation` |
+| 4 | 🟠 Alta | 22 | Path traversal en `/file` por `str.startswith` (bypass `*-evil`) | `Path.is_relative_to()` + allowlist de extensiones |
+| 5 | 🟠 Alta | 79 | XSS en `status.innerHTML` con `data.error/name` no escapados | Helper `_esc()` en cliente, escape de strings dinámicos |
+| 6 | 🟡 Media | 208 | Comparación de token con `==` (timing attack) | `hmac.compare_digest` |
+| 7 | 🟡 Media | 1104 | Dependencias sin pinear | Cotas `>=X,<Y` en `pyproject.toml` y `requirements.txt` |
+| 8 | 🟢 Baja | 117 | `/file` servía cualquier MIME guess (vector XSS reflejado) | Allowlist + `X-Content-Type-Options: nosniff` |
+
+Cobertura de regresión: [`tests/test_security_hardening.py`](../tests/test_security_hardening.py).

@@ -24,12 +24,14 @@ classifiers = [
     "Topic :: System :: Monitoring",
 ]
 dependencies = [
-    "Pillow",
-    "psutil",
-    "requests",
-    "mss",
-    "pyautogui",
-    "pytesseract",
+    # Cotas de seguridad: piso explícito = primera versión sin CVE conocida
+    # al corte de la auditoría 2026-06-01 (ver SECURITY.md §"Auditoría 2026-06").
+    "Pillow>=10.3.0,<12",
+    "psutil>=5.9.8,<7",
+    "requests>=2.32.2,<3",
+    "mss>=9.0.1,<11",
+    "pyautogui>=0.9.54,<1",
+    "pytesseract>=0.3.10,<1",
 ]
 
 [project.optional-dependencies]
