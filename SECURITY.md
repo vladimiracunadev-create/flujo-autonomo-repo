@@ -55,9 +55,15 @@ Alternativa: email a `vladimir.acuna.dev@gmail.com` con asunto `[SECURITY]`.
 
 - Mantén el panel atado a `127.0.0.1` (default). No lo expongas en red sin reverse proxy + TLS.
 - Define `FLUJO_WEBHOOK_TOKEN` antes de habilitar webhooks entrantes.
+- Define `FLUJO_PANEL_TOKEN` si compartís la máquina con otros usuarios o tenés sospecha de browser/proceso hostil local. Sin el token, el panel acepta POSTs locales sin Origin/Referer extraño; con el token, exige `X-Flujo-Token` en **todas** las mutaciones.
 - Declara `allowed_actions` y `allowed_paths` en flows productivos.
 - Revisa `manifest.json` antes de ejecutar un flow nuevo de origen externo.
 - Mantén `db/runs.db`, `output/`, `state/`, `logs/` y `secrets/` ignorados por git (default).
+- No uses `shell=True` en `ui.launch_process` — desde la auditoría 2026-06 está bloqueado por código (lanza `ValueError`).
+
+## Auditoría 2026-06
+
+El 2026-06-01 se ejecutó auditoría interna sobre `engine/`, `actions/` y `app/server.py`. Cerró 8 hallazgos (2 críticos, 3 altos, 2 medios, 1 bajo) — detalle, CWEs y fixes en [docs/SEGURIDAD.md §"Auditoría 2026-06"](docs/SEGURIDAD.md#-auditoría-2026-06--hallazgos-y-fixes). Regresión cubierta en [tests/test_security_hardening.py](tests/test_security_hardening.py).
 
 ## Hardening del CI/CD (supply chain)
 

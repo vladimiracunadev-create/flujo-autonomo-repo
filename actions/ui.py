@@ -37,15 +37,20 @@ def launch_process(command: str, wait_seconds: float = 0.0, shell: bool = False,
     command = command.strip()
     if not command:
         raise ValueError('Se requiere un comando no vacio para lanzar un proceso.')
-    if dry_run:
-        return {'command': command, 'pid': None, 'launched': False, 'dry_run': True, 'shell': shell}
     if shell:
-        process = subprocess.Popen(command, shell=True)
-    else:
-        process = subprocess.Popen(shlex.split(command), shell=False)
+        # Se elimina deliberadamente la rama shell=True para cerrar el vector de
+        # command injection (CWE-78). Si se necesita un binario con argumentos
+        # complejos, hay que pasarlo como string POSIX-tokenizable.
+        raise ValueError(
+            'launch_process: shell=True está deshabilitado por seguridad. '
+            'Pasá el comando como string tokenizable (shlex) y dejá shell=false.'
+        )
+    if dry_run:
+        return {'command': command, 'pid': None, 'launched': False, 'dry_run': True, 'shell': False}
+    process = subprocess.Popen(shlex.split(command), shell=False)
     if wait_seconds > 0:
         time.sleep(wait_seconds)
-    return {'command': command, 'pid': process.pid, 'launched': True, 'dry_run': False, 'shell': shell}
+    return {'command': command, 'pid': process.pid, 'launched': True, 'dry_run': False, 'shell': False}
 
 
 def hotkey(keys: list[str], interval: float = 0.0, dry_run: bool = False) -> dict[str, Any]:

@@ -5,6 +5,19 @@ Todas las versiones notables de Flujo Autónomo se documentan acá. El formato s
 
 ## [Unreleased]
 
+### 🔒 Hardening del panel HTTP y acciones (auditoría 2026-06-01)
+
+Auditoría interna sobre `app/server.py`, `actions/` y `engine/`. Cierra 8 hallazgos: 2 críticos, 3 altos, 2 medios, 1 bajo. Detalle completo en [docs/SEGURIDAD.md §"Auditoría 2026-06"](docs/SEGURIDAD.md#-auditoría-2026-06--hallazgos-y-fixes).
+
+- **CSRF → RCE (crítico, CWE-352+78)**: todos los POST mutadores (`/api/run/`, `/run`, `/flow/<folder>/config`, `/flow/<folder>/schedule`, `/api/form/submit`) pasan ahora por `_authorize_mutation`. Dos modos: (a) `FLUJO_PANEL_TOKEN` con `X-Flujo-Token` (constant-time compare), (b) sin token, exige `Host` loopback y `Origin/Referer` consistentes. Bloquea el caso real "sitio web malicioso hace fetch a `127.0.0.1:8787`".
+- **Command injection (crítico, CWE-78)**: `ui.launch_process(shell=True)` queda **rechazado por código** con `ValueError`. La rama `subprocess.Popen(command, shell=True)` se eliminó.
+- **Path traversal (alto, CWE-22)**: `/file` validaba con `str.startswith(ROOT)`, que en Windows permitía bypass por prefijo (`...repo-evil` startswith `...repo`). Reemplazado por `Path.is_relative_to(ROOT.resolve())`. Además: allowlist de extensiones que bloquea `.html .htm .xhtml .xml .svg .js .mjs .css` (vector XSS reflejado) + header `X-Content-Type-Options: nosniff`.
+- **XSS en panel (alto, CWE-79)**: `status.innerHTML` interpolaba `data.error/name` sin escape. Agregada función `_esc()` en cliente; todos los sinks dinámicos pasan por ahí.
+- **Timing attack en token (medio, CWE-208)**: `_check_webhook_token` usaba `==`. Migrado a `hmac.compare_digest`.
+- **Deps sin pinear (medio, CWE-1104)**: `requirements.txt` y `pyproject.toml` listaban `requests`, `Pillow`, etc. sin versión. Agregadas cotas `>=X.Y.Z,<MAJOR+1` con piso = primera versión sin CVE conocida al 2026-06-01.
+- **MIME guessing en `/file` (bajo, CWE-117)**: cualquier archivo bajo ROOT se servía con MIME adivinado. Combinado con `/api/form/submit` (que ahora también exige auth) permitía XSS reflejado same-origin. Cerrado por allowlist + nosniff.
+- **Regresión cubierta** en [`tests/test_security_hardening.py`](tests/test_security_hardening.py) (7 tests nuevos).
+
 ### 🔒 Hardening del CI/CD (supply chain)
 
 Motivación: este repo ejecuta acciones de teclado/mouse/captura sobre el escritorio del operador. Un commit malicioso fusionado a `main` se traduce en RCE local. Por eso el CI pasa a tratarse como superficie de ataque crítica.

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hmac
 import html
 import json
 import mimetypes
+import os.path
+import re
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -37,6 +40,45 @@ from engine.scheduler import SchedulerService
 from engine.secrets import get_secret
 
 ROOT = root_dir()
+
+# Whitelist estricta para el segmento `folder` proveniente del URL.
+# Cierra py/path-injection: cualquier intento de pasar `..`, separadores
+# de path, NUL, o caracteres no-ASCII queda rechazado antes de tocar el
+# catálogo o el filesystem. Los flows reales usan slug snake_case.
+_FOLDER_RE = re.compile(r'^[A-Za-z0-9_\-]{1,64}$')
+
+
+def _safe_folder(raw: str) -> str | None:
+    """Devuelve `raw` si pasa el filtro de slug; si no, None."""
+    if not raw or not _FOLDER_RE.match(raw):
+        return None
+    return raw
+
+
+def _resolve_under_root(user_path: str) -> Path | None:
+    """Resuelve ``user_path`` y garantiza que queda bajo ROOT.
+
+    Devuelve un ``Path`` absoluto seguro o ``None`` si está fuera de ROOT,
+    no existe, o la ruta no se puede normalizar. Usa el patrón
+    ``realpath`` + ``commonpath`` que CodeQL reconoce como sanitizer
+    de py/path-injection.
+    """
+    if not user_path:
+        return None
+    root_real = os.path.realpath(str(ROOT))
+    base = user_path if os.path.isabs(user_path) else os.path.join(root_real, user_path)
+    try:
+        target_real = os.path.realpath(base)
+        # commonpath lanza ValueError si target/root están en drives
+        # distintos (Windows) o si alguno es vacío. Cualquier excepción
+        # → tratar como ruta inválida.
+        if os.path.commonpath([target_real, root_real]) != root_real:
+            return None
+    except (OSError, ValueError):
+        return None
+    return Path(target_real)
+
+
 SCHEDULER = SchedulerService(loop_sleep_seconds=2.0)
 SCHEDULER.start_in_background()
 init_db()
@@ -387,10 +429,12 @@ async function pollStatus(runId, card, btn, flowId) {
       const isTerminal = data.status === 'completed' || data.status === 'failed';
       const headerCls = data.status === 'completed' ? 'completed' : (data.status === 'failed' ? 'failed' : 'running');
       const detailLink = `/run/${flowId}/${runId}`;
-      const errBlock = data.error ? `<div class="step-error">${(typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error)))}</div>` : '';
+      const _esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const _errText = data.error ? (typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error))) : '';
+      const errBlock = _errText ? `<div class="step-error">${_esc(_errText)}</div>` : '';
       status.innerHTML = `<div class="run-progress">
         <div class="run-progress-header">
-          <span class="badge ${headerCls}"><span class="dot"></span>${data.status}</span>
+          <span class="badge ${headerCls}"><span class="dot"></span>${_esc(data.status)}</span>
           <a href="${detailLink}">ver detalle →</a>
         </div>
         ${renderProgress(data)}
@@ -525,7 +569,8 @@ async function runFlow(folder, btn, opts) {
       btn.innerHTML = '<span class="spinner"></span> En curso…';
       pollStatus(data.run_id, card, btn, data.flow_id);
     } else {
-      status.innerHTML = `<span class="badge failed"><span class="dot"></span>error</span> ${data.error || ''}`;
+      const _escErr = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      status.innerHTML = `<span class="badge failed"><span class="dot"></span>error</span> ${_escErr(data.error || '')}`;
       showToast('Error: ' + (data.error || 'desconocido'), 'error');
       btn.disabled = false;
       btn.textContent = 'Ejecutar';
@@ -560,7 +605,8 @@ const KEY_TO_INDEX = {
 function openImageLightbox(url, name) {
   const lb = document.getElementById('lightbox');
   if (!lb) return;
-  lb.innerHTML = `<img src="${url}" alt="${name||''}" /><div class="lb-caption">${name||''}</div>`;
+  const _e = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  lb.innerHTML = `<img src="${_e(url)}" alt="${_e(name||'')}" /><div class="lb-caption">${_e(name||'')}</div>`;
   lb.classList.add('show');
 }
 function closeLightbox() {
@@ -1352,12 +1398,75 @@ class AppHandler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length).decode('utf-8') if length else ''
         return parse_qs(raw)
 
-    def _check_webhook_token(self) -> bool:
-        expected = get_secret('FLUJO_WEBHOOK_TOKEN')
+    # --- Auth helpers ---------------------------------------------------
+    #
+    # Modelo de protección de endpoints mutadores (POST que disparan flows,
+    # editan config, programan scheduler, escriben en disco):
+    #
+    #   1. Si el operador define FLUJO_PANEL_TOKEN, **toda** mutación exige
+    #      el header `X-Flujo-Token` con valor exacto (comparación constant-
+    #      time vía hmac.compare_digest, CWE-208).
+    #
+    #   2. Si no hay token configurado (modo "panel local sin fricción"),
+    #      se aplican defensas anti-CSRF y anti-DNS-rebinding:
+    #        a. El header `Host` debe ser loopback (127.0.0.1/localhost).
+    #        b. Si la request trae `Origin`, debe igualar `http://<Host>`.
+    #        c. Si trae `Referer`, debe empezar con `http://<Host>/`.
+    #      Esto bloquea el caso real: un sitio web malicioso que el usuario
+    #      visita y que intenta `fetch('http://127.0.0.1:8787/api/run/X')`
+    #      — el browser siempre envía Origin en cross-site fetch.
+    #
+    #   3. El webhook entrante (/api/hook/) sigue exigiendo
+    #      FLUJO_WEBHOOK_TOKEN siempre (es la única superficie diseñada
+    #      para llamadas no-locales).
+
+    def _check_token(self, env_name: str) -> bool:
+        expected = get_secret(env_name)
         if not expected:
             return False
         provided = self.headers.get('X-Flujo-Token', '')
-        return bool(provided) and provided == expected
+        if not provided:
+            return False
+        return hmac.compare_digest(provided, expected)
+
+    def _check_webhook_token(self) -> bool:
+        return self._check_token('FLUJO_WEBHOOK_TOKEN')
+
+    def _authorize_mutation(self) -> tuple[bool, str]:
+        """Devuelve (ok, error_msg) para endpoints mutadores."""
+        # Modo 1: token explícito configurado.
+        panel_token = get_secret('FLUJO_PANEL_TOKEN')
+        if panel_token:
+            if self._check_token('FLUJO_PANEL_TOKEN'):
+                return True, ''
+            return False, 'token inválido (FLUJO_PANEL_TOKEN requerido)'
+
+        # Modo 2: sin token, exigir loopback + Origin/Referer consistentes.
+        host = (self.headers.get('Host') or '').strip()
+        host_only = host.split(':', 1)[0].lower()
+        if host_only not in {'127.0.0.1', 'localhost', '[::1]', '::1'}:
+            return False, 'Host no loopback: cliente remoto debe usar FLUJO_PANEL_TOKEN'
+
+        expected_origin = f'http://{host}'
+        origin = self.headers.get('Origin')
+        if origin and origin != expected_origin:
+            return False, f'Origin {origin!r} no coincide con {expected_origin!r}'
+
+        referer = self.headers.get('Referer')
+        if referer and not referer.startswith(expected_origin + '/') and referer != expected_origin:
+            return False, f'Referer {referer!r} no coincide con {expected_origin!r}'
+
+        return True, ''
+
+    def _reject_unauthorized(self, error_msg: str, *, as_json: bool) -> None:
+        payload = {'ok': False, 'error': f'no autorizado: {error_msg}'}
+        if as_json:
+            self._send_json(payload, status=HTTPStatus.UNAUTHORIZED)
+        else:
+            self._send_html(
+                html_page('No autorizado', f'<div class="empty"><h4>401</h4><p>{html.escape(error_msg)}</p></div>'),
+                status=HTTPStatus.UNAUTHORIZED,
+            )
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -1384,7 +1493,9 @@ class AppHandler(BaseHTTPRequestHandler):
             return self._send_json(_run_status_payload(run_id))
         if path.startswith('/flow/'):
             parts = [p for p in path.split('/') if p]
-            folder = parts[1] if len(parts) > 1 else ''
+            folder = _safe_folder(parts[1] if len(parts) > 1 else '')
+            if folder is None:
+                return self._send_html(html_page('Folder inválido', '<div class="empty"><h4>Folder inválido</h4></div>'), status=400)
             if len(parts) == 2:
                 return self._send_html(render_flow_info(folder))
             if len(parts) == 3 and parts[2] == 'config':
@@ -1398,14 +1509,42 @@ class AppHandler(BaseHTTPRequestHandler):
         if path == '/file':
             params = parse_qs(parsed.query)
             rel = unquote(params.get('path', [''])[0])
-            target = (ROOT / rel).resolve() if not Path(rel).is_absolute() else Path(rel)
-            if not str(target).startswith(str(ROOT.resolve())) or not target.exists() or not target.is_file():
+            # Anti path-traversal (CWE-22). Patrón inline reconocido por
+            # CodeQL py/path-injection (ver ejemplo canónico de la regla):
+            # normalizar el path JOIN-eado y exigir prefijo absoluto.
+            if not rel:
                 return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
-            mime, _ = mimetypes.guess_type(str(target))
-            content = target.read_bytes()
+            # Allowlist mínima de caracteres en el path relativo, antes de
+            # tocar el filesystem. Bloquea NUL bytes y otros chars raros.
+            if '\x00' in rel or any(ord(c) < 32 for c in rel):
+                return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
+            base_path = os.path.realpath(str(ROOT))
+            # Rechazamos paths absolutos: el cliente pide siempre rutas
+            # relativas a la raíz del proyecto. Esto simplifica el sanitizer
+            # y elimina el caso `C:\Windows\System32`.
+            if os.path.isabs(rel):
+                return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
+            fullpath = os.path.normpath(os.path.join(base_path, rel))
+            # Patrón canónico CodeQL: startswith sobre prefijo absoluto.
+            # Sumamos os.sep para cerrar el bypass por sibling-prefix
+            # (`/.../repo-evil` startswith `/.../repo`).
+            if not fullpath.startswith(base_path + os.sep):
+                return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
+            if not os.path.isfile(fullpath):
+                return self._send_html(html_page('Archivo no encontrado', '<div class="empty"><h4>Ruta inválida</h4></div>'), status=404)
+            # Allowlist de extensiones: bloqueamos contenido ejecutable por
+            # browser desde el mismo origen (CWE-79 reflejada).
+            ext = os.path.splitext(fullpath)[1].lower()
+            if ext in {'.html', '.htm', '.xhtml', '.xml', '.svg', '.js', '.mjs', '.css'}:
+                return self._send_html(html_page('Tipo no permitido', '<div class="empty"><h4>Extensión no servida</h4></div>'), status=415)
+            mime, _ = mimetypes.guess_type(fullpath)
+            with open(fullpath, 'rb') as fh:
+                content = fh.read()
             self.send_response(HTTPStatus.OK)
             self.send_header('Content-Type', mime or 'application/octet-stream')
             self.send_header('Content-Length', str(len(content)))
+            # Endurece el sniffing: el browser no debe "adivinar" tipos.
+            self.send_header('X-Content-Type-Options', 'nosniff')
             self.end_headers()
             self.wfile.write(content)
             return
@@ -1414,6 +1553,13 @@ class AppHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+        # /api/hook/ tiene su propio mecanismo de auth (token webhook); todo
+        # el resto pasa por _authorize_mutation (anti-CSRF/DNS-rebinding).
+        if path != '/api/hook/' and not path.startswith('/api/hook/'):
+            ok, err = self._authorize_mutation()
+            if not ok:
+                as_json = path.startswith('/api/')
+                return self._reject_unauthorized(err, as_json=as_json)
         if path == '/api/form/submit':
             length = int(self.headers.get('Content-Length', '0') or '0')
             if length <= 0:
@@ -1430,7 +1576,9 @@ class AppHandler(BaseHTTPRequestHandler):
             target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
             return self._send_json({'ok': True, 'saved_path': str(target.relative_to(ROOT))})
         if path.startswith('/api/run/'):
-            folder = path[len('/api/run/'):].strip('/')
+            folder = _safe_folder(path[len('/api/run/'):].strip('/'))
+            if folder is None:
+                return self._send_json({'ok': False, 'error': 'folder inválido'}, status=400)
             flow = get_flow_by_folder(folder)
             if not flow:
                 return self._send_json({'ok': False, 'error': 'flow no encontrado'}, status=404)
@@ -1474,9 +1622,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 'flow_id': flow_id,
             })
         if path.startswith('/api/hook/'):
-            folder = path[len('/api/hook/'):].strip('/')
-            if not folder:
-                return self._send_json({'ok': False, 'error': 'folder requerido'}, status=400)
+            folder = _safe_folder(path[len('/api/hook/'):].strip('/'))
+            if folder is None:
+                return self._send_json({'ok': False, 'error': 'folder inválido'}, status=400)
             if not self._check_webhook_token():
                 return self._send_json(
                     {'ok': False, 'error': 'token inválido o FLUJO_WEBHOOK_TOKEN no configurado'},
@@ -1497,7 +1645,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 return self._send_json({'ok': False, 'error': str(exc)}, status=500)
         if path == '/run':
             params = parse_qs(parsed.query)
-            folder = params.get('flow', [''])[0]
+            folder = _safe_folder(params.get('flow', [''])[0])
+            if folder is None:
+                return self._send_html(html_page('Error', '<div class="empty"><h4>Folder inválido</h4></div>'), status=400)
             flow = get_flow_by_folder(folder)
             if not flow:
                 return self._send_html(html_page('Error', '<div class="empty"><h4>Flujo no encontrado</h4></div>'), status=404)
@@ -1508,7 +1658,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 return self._send_html(html_page('Ejecución con error', f'<div class="card" style="background:var(--danger-soft);color:var(--danger)">{html.escape(str(exc))}</div>'), status=500)
         if path.startswith('/flow/') and path.endswith('/config'):
             parts = [p for p in path.split('/') if p]
-            folder = parts[1]
+            folder = _safe_folder(parts[1] if len(parts) > 1 else '')
+            if folder is None:
+                return self._send_html(html_page('Error', '<div class="empty"><h4>Folder inválido</h4></div>'), status=400)
             form = self._read_form()
             try:
                 config = json.loads(form.get('config_json', ['{}'])[0])
@@ -1518,7 +1670,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 return self._send_html(render_flow_config(folder, message=f'Error al guardar: {exc}'), status=400)
         if path.startswith('/flow/') and path.endswith('/schedule'):
             parts = [p for p in path.split('/') if p]
-            folder = parts[1]
+            folder = _safe_folder(parts[1] if len(parts) > 1 else '')
+            if folder is None:
+                return self._send_html(html_page('Error', '<div class="empty"><h4>Folder inválido</h4></div>'), status=400)
             form = self._read_form()
             enabled = 'enabled' in form
             cron_expression = (form.get('cron_expression', [''])[0] or '').strip() or None
