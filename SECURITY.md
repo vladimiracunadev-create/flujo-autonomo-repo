@@ -224,8 +224,8 @@ Cada capa responde a las cuatro preguntas: **qué amenaza para**, **cómo está 
 ```
 actions/checkout                      11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 actions/setup-python                  a26af69be951a213d495a4c3e4e4022e16d87065  # v5.4.0
-github/codeql-action/init             5c8a8a642e79153f5d047b10ec1cba1d1cc65699  # v3.28.10
-github/codeql-action/analyze          5c8a8a642e79153f5d047b10ec1cba1d1cc65699  # v3.28.10
+github/codeql-action/init             7211b7c8077ea37d8641b6271f6a365a22a5fbfa  # v4.36.0
+github/codeql-action/analyze          7211b7c8077ea37d8641b6271f6a365a22a5fbfa  # v4.36.0
 astral-sh/setup-uv                    caf0cab7a618c569241d31dcd442f54681755d39  # v3.2.4
 ```
 
