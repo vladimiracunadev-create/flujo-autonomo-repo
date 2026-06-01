@@ -4,6 +4,7 @@ import hmac
 import html
 import json
 import mimetypes
+import re
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -38,6 +39,21 @@ from engine.scheduler import SchedulerService
 from engine.secrets import get_secret
 
 ROOT = root_dir()
+
+# Whitelist estricta para el segmento `folder` proveniente del URL.
+# Cierra py/path-injection: cualquier intento de pasar `..`, separadores
+# de path, NUL, o caracteres no-ASCII queda rechazado antes de tocar el
+# catálogo o el filesystem. Los flows reales usan slug snake_case.
+_FOLDER_RE = re.compile(r'^[A-Za-z0-9_\-]{1,64}$')
+
+
+def _safe_folder(raw: str) -> str | None:
+    """Devuelve `raw` si pasa el filtro de slug; si no, None."""
+    if not raw or not _FOLDER_RE.match(raw):
+        return None
+    return raw
+
+
 SCHEDULER = SchedulerService(loop_sleep_seconds=2.0)
 SCHEDULER.start_in_background()
 init_db()
@@ -1452,7 +1468,9 @@ class AppHandler(BaseHTTPRequestHandler):
             return self._send_json(_run_status_payload(run_id))
         if path.startswith('/flow/'):
             parts = [p for p in path.split('/') if p]
-            folder = parts[1] if len(parts) > 1 else ''
+            folder = _safe_folder(parts[1] if len(parts) > 1 else '')
+            if folder is None:
+                return self._send_html(html_page('Folder inválido', '<div class="empty"><h4>Folder inválido</h4></div>'), status=400)
             if len(parts) == 2:
                 return self._send_html(render_flow_info(folder))
             if len(parts) == 3 and parts[2] == 'config':
@@ -1524,7 +1542,9 @@ class AppHandler(BaseHTTPRequestHandler):
             target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
             return self._send_json({'ok': True, 'saved_path': str(target.relative_to(ROOT))})
         if path.startswith('/api/run/'):
-            folder = path[len('/api/run/'):].strip('/')
+            folder = _safe_folder(path[len('/api/run/'):].strip('/'))
+            if folder is None:
+                return self._send_json({'ok': False, 'error': 'folder inválido'}, status=400)
             flow = get_flow_by_folder(folder)
             if not flow:
                 return self._send_json({'ok': False, 'error': 'flow no encontrado'}, status=404)
@@ -1568,9 +1588,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 'flow_id': flow_id,
             })
         if path.startswith('/api/hook/'):
-            folder = path[len('/api/hook/'):].strip('/')
-            if not folder:
-                return self._send_json({'ok': False, 'error': 'folder requerido'}, status=400)
+            folder = _safe_folder(path[len('/api/hook/'):].strip('/'))
+            if folder is None:
+                return self._send_json({'ok': False, 'error': 'folder inválido'}, status=400)
             if not self._check_webhook_token():
                 return self._send_json(
                     {'ok': False, 'error': 'token inválido o FLUJO_WEBHOOK_TOKEN no configurado'},
@@ -1591,7 +1611,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 return self._send_json({'ok': False, 'error': str(exc)}, status=500)
         if path == '/run':
             params = parse_qs(parsed.query)
-            folder = params.get('flow', [''])[0]
+            folder = _safe_folder(params.get('flow', [''])[0])
+            if folder is None:
+                return self._send_html(html_page('Error', '<div class="empty"><h4>Folder inválido</h4></div>'), status=400)
             flow = get_flow_by_folder(folder)
             if not flow:
                 return self._send_html(html_page('Error', '<div class="empty"><h4>Flujo no encontrado</h4></div>'), status=404)
@@ -1602,7 +1624,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 return self._send_html(html_page('Ejecución con error', f'<div class="card" style="background:var(--danger-soft);color:var(--danger)">{html.escape(str(exc))}</div>'), status=500)
         if path.startswith('/flow/') and path.endswith('/config'):
             parts = [p for p in path.split('/') if p]
-            folder = parts[1]
+            folder = _safe_folder(parts[1] if len(parts) > 1 else '')
+            if folder is None:
+                return self._send_html(html_page('Error', '<div class="empty"><h4>Folder inválido</h4></div>'), status=400)
             form = self._read_form()
             try:
                 config = json.loads(form.get('config_json', ['{}'])[0])
@@ -1612,7 +1636,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 return self._send_html(render_flow_config(folder, message=f'Error al guardar: {exc}'), status=400)
         if path.startswith('/flow/') and path.endswith('/schedule'):
             parts = [p for p in path.split('/') if p]
-            folder = parts[1]
+            folder = _safe_folder(parts[1] if len(parts) > 1 else '')
+            if folder is None:
+                return self._send_html(html_page('Error', '<div class="empty"><h4>Folder inválido</h4></div>'), status=400)
             form = self._read_form()
             enabled = 'enabled' in form
             cron_expression = (form.get('cron_expression', [''])[0] or '').strip() or None

@@ -129,6 +129,40 @@ def test_file_rechaza_extension_ejecutable(live_server, project_root):
 
 # --- _check_token usa hmac.compare_digest -----------------------------------
 
+# --- folder slug filter (defensa en profundidad contra py/path-injection) ---
+
+@pytest.mark.integration
+def test_api_run_rechaza_folder_con_path_traversal(live_server):
+    import urllib.parse
+    for evil in ['../etc/passwd', 'foo/bar', 'foo\\bar', 'foo;rm', 'foo bar', '']:
+        req = urllib.request.Request(
+            live_server + '/api/run/' + urllib.parse.quote(evil, safe=''),
+            method='POST',
+        )
+        try:
+            urllib.request.urlopen(req)
+            # /api/run/ (vacío) cae en 404 por path no encontrado; OK.
+        except urllib.error.HTTPError as exc:
+            assert exc.code in (400, 404), f'inesperado {exc.code} para {evil!r}'
+
+
+def test_safe_folder_acepta_slugs_validos():
+    from app.server import _safe_folder
+    assert _safe_folder('05_system_healthcheck') == '05_system_healthcheck'
+    assert _safe_folder('01-flow') == '01-flow'
+
+
+def test_safe_folder_rechaza_traversal_y_separadores():
+    from app.server import _safe_folder
+    assert _safe_folder('../etc/passwd') is None
+    assert _safe_folder('foo/bar') is None
+    assert _safe_folder('foo\\bar') is None
+    assert _safe_folder('foo;rm') is None
+    assert _safe_folder('') is None
+    assert _safe_folder('a' * 65) is None  # excede 64 chars
+    assert _safe_folder('flow\x00null') is None
+
+
 def test_check_token_usa_compare_digest(monkeypatch):
     """Smoke test: con token mal, devuelve False (sin lanzar)."""
     import hmac as _hmac
