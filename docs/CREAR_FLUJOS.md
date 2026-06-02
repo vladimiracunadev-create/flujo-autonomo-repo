@@ -64,6 +64,7 @@ Ejemplo mínimo:
 | `required_secrets` | manifest | sandbox: variables de entorno o secretos requeridos |
 | `allowed_paths` | manifest | sandbox: prefijos de ruta donde el flow puede leer/escribir |
 | `max_runtime_seconds` | manifest | sandbox: corta la corrida si se excede |
+| `preview` | manifest | si `true`, el panel muestra el flow con badge `🚧 preview`, deshabilita Ejecutar y rechaza con HTTP 409 los endpoints `/api/run`, `/api/hook`, `/run` y `/flow/<f>/schedule`. El CLI sigue funcionando — usar para probar. Override local sin tocar el manifest: crear archivo `flows/<NN>_<slug>/.disabled`. Ver [ROADMAP.md](ROADMAP.md). |
 | `action` | step | acción registrada |
 | `params` | step | argumentos renderizados con contexto |
 | `save_as` | step | clave de contexto para el resultado |

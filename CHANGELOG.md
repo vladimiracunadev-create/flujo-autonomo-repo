@@ -12,8 +12,9 @@ Los 5 casos nuevos agregados en Fase 1 del roadmap (08 lock, 09 desktop capture,
 - Card del panel muestra badge `🚧 preview` y el botón Ejecutar queda deshabilitado con texto "🚧 Preview · no operativo".
 - Atajos `Alt+8..Alt+=` reconocen el flow pero muestran toast informativo en lugar de ejecutar.
 - Backend rechaza con HTTP 409 cualquier intento de ejecutar/programar/webhook un flow preview: `/api/run/`, `/api/hook/`, `/run`, `/flow/<folder>/schedule`.
-- Mecanismo: convención `flows/NN_<slug>/.disabled` (archivo marcador). Quitar el archivo activa el flow.
-- Cero cambios al motor ni al schema — la lógica vive en [app/server.py](app/server.py) (`_is_preview`).
+- **Mecanismo canónico**: campo `"preview": true` en el manifest. Schema actualizado para aceptarlo como propiedad opcional booleana (`schemas/manifest.schema.json`). Documentado en `docs/CREAR_FLUJOS.md`.
+- **Mecanismo override local**: archivo marcador `flows/NN_<slug>/.disabled` (no requiere tocar el manifest). Cualquiera de los dos dispara el estado preview — defense in depth.
+- Cero cambios al motor — el catálogo, sandbox, orquestador y scheduler no saben de `preview`. La lógica vive solo en [app/server.py](app/server.py) (`_is_preview`).
 
 CLI (`flujo run flows/NN_...`) **sí** los ejecuta — está pensado para desarrollo/test local.
 

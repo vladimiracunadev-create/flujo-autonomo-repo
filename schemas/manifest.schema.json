@@ -36,6 +36,11 @@
       "type": "number",
       "minimum": 0
     },
+    "preview": {
+      "description": "Marca el flow como preview/no-operativo. El panel lo muestra con badge '🚧 preview', deshabilita el botón Ejecutar y los endpoints HTTP de ejecución (/api/run, /api/hook, /run, /flow/<f>/schedule) responden 409. El CLI (flujo run) sigue funcionando — está pensado para probar el flow antes de quitar la marca. Ver docs/ROADMAP.md.",
+      "type": "boolean",
+      "default": false
+    },
     "steps": {
       "type": "array",
       "minItems": 1,

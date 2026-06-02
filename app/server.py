@@ -56,8 +56,22 @@ def _safe_folder(raw: str) -> str | None:
 
 
 def _is_preview(flow: dict) -> bool:
-    """True si el flow es preview/no-operativo (marcador `.disabled` en su carpeta)."""
-    return (Path(flow['flow_path']) / '.disabled').exists()
+    """True si el flow es preview/no-operativo.
+
+    Dos mecanismos, cualquiera dispara el estado preview:
+    1. Campo ``"preview": true`` en el manifest (canónico, viaja con el flow).
+    2. Archivo marcador ``.disabled`` en la carpeta del flow (override local
+       sin tocar el manifest — útil para deshabilitar temporalmente un flow
+       operativo sin commitear cambios).
+    """
+    flow_path = Path(flow['flow_path'])
+    if (flow_path / '.disabled').exists():
+        return True
+    try:
+        manifest = json.loads((flow_path / 'manifest.json').read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return bool(manifest.get('preview'))
 
 
 def _resolve_under_root(user_path: str) -> Path | None:
