@@ -2,9 +2,9 @@
 
 > Sandbox declarativo por flow, bóveda de secretos y modelo de confianza.
 
-![Seguridad](assets/cover-flujo-autonomo.svg)
+![Seguridad](assets/cover-automa-pc.svg)
 
-Flujo Autónomo ejecuta automatizaciones locales. Eso lo hace útil, pero también exige tratar cada manifest como código operativo. Desde la versión 0.2.0, cada flow declara su propia política de sandbox que el motor hace cumplir.
+Automa ejecuta automatizaciones locales. Eso lo hace útil, pero también exige tratar cada manifest como código operativo. Desde la versión 0.2.0, cada flow declara su propia política de sandbox que el motor hace cumplir.
 
 > [!WARNING]
 > Si vas a aceptar manifests de terceros, **siempre revísalos antes de ejecutarlos**. El sandbox declarativo limita el daño pero no es aislamiento OS-level.
@@ -78,11 +78,11 @@ Las acciones que aceptan tokens (p. ej. `notify.send` con `backend=webhook`) adm
 
 ## 🪝 Webhook De Entrada
 
-El endpoint `POST /api/hook/<folder>` permite disparar flows externamente. Está deshabilitado por defecto: sólo acepta peticiones cuando el secreto `FLUJO_WEBHOOK_TOKEN` está definido y el header `X-Flujo-Token` coincide.
+El endpoint `POST /api/hook/<folder>` permite disparar flows externamente. Está deshabilitado por defecto: sólo acepta peticiones cuando el secreto `AUTOMA_WEBHOOK_TOKEN` está definido y el header `X-Automa-Token` coincide.
 
 ```bash
-export FLUJO_WEBHOOK_TOKEN=$(openssl rand -hex 32)
-curl -X POST -H "X-Flujo-Token: $FLUJO_WEBHOOK_TOKEN" \
+export AUTOMA_WEBHOOK_TOKEN=$(openssl rand -hex 32)
+curl -X POST -H "X-Automa-Token: $AUTOMA_WEBHOOK_TOKEN" \
      http://127.0.0.1:8787/api/hook/05_system_healthcheck
 ```
 
@@ -98,11 +98,11 @@ Todos los endpoints `POST` mutadores (`/api/run/`, `/run`, `/flow/<folder>/confi
 
 ### Modo 1 — Token explícito (recomendado para máquinas compartidas)
 
-Si la variable de entorno `FLUJO_PANEL_TOKEN` está definida, **toda** mutación exige el header `X-Flujo-Token` con valor exacto:
+Si la variable de entorno `AUTOMA_PANEL_TOKEN` está definida, **toda** mutación exige el header `X-Automa-Token` con valor exacto:
 
 ```bash
-export FLUJO_PANEL_TOKEN=$(openssl rand -hex 32)
-curl -X POST -H "X-Flujo-Token: $FLUJO_PANEL_TOKEN" \
+export AUTOMA_PANEL_TOKEN=$(openssl rand -hex 32)
+curl -X POST -H "X-Automa-Token: $AUTOMA_PANEL_TOKEN" \
      http://127.0.0.1:8787/api/run/05_system_healthcheck
 ```
 
@@ -110,7 +110,7 @@ Sin el header o con valor distinto → `401 Unauthorized` (comparación constant
 
 ### Modo 2 — Sin token (panel local sin fricción, default)
 
-Cuando `FLUJO_PANEL_TOKEN` no está seteado, se aplican defensas anti-CSRF y anti-DNS-rebinding:
+Cuando `AUTOMA_PANEL_TOKEN` no está seteado, se aplican defensas anti-CSRF y anti-DNS-rebinding:
 
 1. El header `Host` debe ser loopback (`127.0.0.1`, `localhost`, `[::1]`).
 2. Si la request trae `Origin`, debe igualar `http://<Host>`.
@@ -119,7 +119,7 @@ Cuando `FLUJO_PANEL_TOKEN` no está seteado, se aplican defensas anti-CSRF y ant
 Esto bloquea el caso real: un sitio web malicioso visitado por el operador que intenta `fetch('http://127.0.0.1:8787/api/run/X')` — el browser siempre envía `Origin` en fetch cross-site, así que es rechazado con 401. Scripts locales (curl, tests) que no envían `Origin` siguen funcionando.
 
 > [!IMPORTANT]
-> Si vas a binder el panel a una IP no loopback, **es obligatorio** setear `FLUJO_PANEL_TOKEN`. El modo 2 asume loopback y rechaza el resto.
+> Si vas a binder el panel a una IP no loopback, **es obligatorio** setear `AUTOMA_PANEL_TOKEN`. El modo 2 asume loopback y rechaza el resto.
 
 ---
 

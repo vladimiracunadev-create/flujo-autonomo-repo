@@ -3,7 +3,7 @@ requires = ["hatchling>=1.21"]
 build-backend = "hatchling.build"
 
 [project]
-name = "flujo-autonomo"
+name = "automa-pc"
 version = "0.2.0"
 description = "Orquestador local de procesos para PC: flows declarativos, ejecución trazable, scheduler y panel operativo."
 readme = "README.md"
@@ -44,11 +44,11 @@ dev = [
 ]
 
 [project.scripts]
-flujo = "engine.runner:main"
-flujo-panel = "app.server:run_server"
-flujo-validate = "scripts.validate_project:main"
+automa = "engine.runner:main"
+automa-panel = "app.server:run_server"
+automa-validate = "scripts.validate_project:main"
 
-[project.entry-points."flujo.actions"]
+[project.entry-points."automa.actions"]
 # Built-in actions exposed via the same entry-point mechanism third-party
 # packages use. Format: "<action.name> = <module>:<callable>".
 "filesystem.ensure_directory" = "actions.filesystem:ensure_directory"

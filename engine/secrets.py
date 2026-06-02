@@ -54,6 +54,6 @@ def list_secret_names() -> dict[str, str]:
     for key in _load_file_secrets():
         names[key] = 'file'
     for key in os.environ:
-        if key.startswith('FLUJO_') or key.endswith('_API_KEY') or key.endswith('_TOKEN'):
+        if key.startswith('AUTOMA_') or key.endswith('_API_KEY') or key.endswith('_TOKEN'):
             names.setdefault(key, 'env')
     return names

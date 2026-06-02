@@ -166,7 +166,7 @@ def test_safe_folder_rechaza_traversal_y_separadores():
 def test_check_token_usa_compare_digest(monkeypatch):
     """Smoke test: con token mal, devuelve False (sin lanzar)."""
     import hmac as _hmac
-    monkeypatch.setenv('FLUJO_PANEL_TOKEN', 'secreto_correcto')
+    monkeypatch.setenv('AUTOMA_PANEL_TOKEN', 'secreto_correcto')
     # Verificamos que el módulo importa hmac y que compare_digest existe;
     # garantía mínima de que no caímos en `==`. La cobertura real del flujo
     # se valida en los tests de Origin de más arriba.

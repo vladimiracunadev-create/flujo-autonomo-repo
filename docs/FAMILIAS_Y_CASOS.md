@@ -2,7 +2,7 @@
 
 > Catálogo completo, matriz de compatibilidad y honestidad sobre qué requiere cada flow.
 
-![Familias y Casos](assets/cover-flujo-autonomo.svg)
+![Familias y Casos](assets/cover-automa-pc.svg)
 
 La documentación usa dos niveles:
 

@@ -14,7 +14,7 @@ class LazyActionRegistry:
     - Estática: ``register_path('action.name', 'module:callable')``.
     - Dinámica: ``register_callable('action.name', fn)`` (útil para tests
       o paquetes que provean acciones programáticamente).
-    - Externa: ``load_entry_points()`` descubre entries ``flujo.actions``
+    - Externa: ``load_entry_points()`` descubre entries ``automa.actions``
       en el entorno (publicadas por terceros vía ``pyproject.toml``).
     """
 
@@ -58,10 +58,10 @@ class LazyActionRegistry:
         except ImportError:  # pragma: no cover - py<3.10 imposible (declared min)
             return
         try:
-            eps = entry_points(group='flujo.actions')
+            eps = entry_points(group='automa.actions')
         except TypeError:
             # Compat py3.9 (no usado, pero por si acaso)
-            eps = entry_points().get('flujo.actions', [])  # type: ignore[attr-defined]
+            eps = entry_points().get('automa.actions', [])  # type: ignore[attr-defined]
         for ep in eps:
             self._action_paths.setdefault(ep.name, ep.value)
 

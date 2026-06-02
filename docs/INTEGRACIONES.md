@@ -2,9 +2,9 @@
 
 > Webhook entrante para disparar flows + `notify.send` para emitir notificaciones.
 
-![Integraciones](assets/cover-flujo-autonomo.svg)
+![Integraciones](assets/cover-automa-pc.svg)
 
-Dos vías para conectar Flujo Autónomo con el resto del mundo: webhook entrante para disparar flows desde sistemas externos, y la acción `notify.send` para emitir notificaciones al final de un flow.
+Dos vías para conectar Automa con el resto del mundo: webhook entrante para disparar flows desde sistemas externos, y la acción `notify.send` para emitir notificaciones al final de un flow.
 
 ## Webhook De Entrada
 
@@ -12,12 +12,12 @@ Endpoint: `POST /api/hook/<folder>`.
 
 ### Configuración
 
-1. Define el secreto `FLUJO_WEBHOOK_TOKEN` (env var o `secrets/secrets.json`).
+1. Define el secreto `AUTOMA_WEBHOOK_TOKEN` (env var o `secrets/secrets.json`).
 2. Reinicia el panel.
 
 ```bash
-export FLUJO_WEBHOOK_TOKEN=$(openssl rand -hex 32)
-flujo-panel
+export AUTOMA_WEBHOOK_TOKEN=$(openssl rand -hex 32)
+automa-panel
 ```
 
 Si el secreto no está definido, el endpoint responde `401` siempre. Esto es deliberado: no queremos un endpoint abierto.
@@ -26,7 +26,7 @@ Si el secreto no está definido, el endpoint responde `401` siempre. Esto es del
 
 ```bash
 curl -X POST \
-     -H "X-Flujo-Token: $FLUJO_WEBHOOK_TOKEN" \
+     -H "X-Automa-Token: $AUTOMA_WEBHOOK_TOKEN" \
      http://127.0.0.1:8787/api/hook/05_system_healthcheck
 ```
 
@@ -110,7 +110,7 @@ Discord también acepta `content` en lugar de `text`. Para esto, pasa `extra`:
 ## Patrón Disparador → Pipeline → Notificación
 
 ```text
-sistema externo --POST hook--> Flujo Autónomo --ejecuta flow--> notify.send (Slack)
+sistema externo --POST hook--> Automa --ejecuta flow--> notify.send (Slack)
 ```
 
 El flow puede usar `transitions` con `when` para decidir si notificar o no en función del resultado.
