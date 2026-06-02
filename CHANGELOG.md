@@ -5,6 +5,18 @@ Todas las versiones notables de Automa se documentan acá. El formato sigue
 
 ## [Unreleased]
 
+### 🚧 Preview: flows 08–12 visibles pero no operativos
+
+Los 5 casos nuevos agregados en Fase 1 del roadmap (08 lock, 09 desktop capture, 10 explorer, 11 settings, 12 desktop OCR) ahora aparecen en el panel **marcados como preview**:
+
+- Card del panel muestra badge `🚧 preview` y el botón Ejecutar queda deshabilitado con texto "🚧 Preview · no operativo".
+- Atajos `Alt+8..Alt+=` reconocen el flow pero muestran toast informativo en lugar de ejecutar.
+- Backend rechaza con HTTP 409 cualquier intento de ejecutar/programar/webhook un flow preview: `/api/run/`, `/api/hook/`, `/run`, `/flow/<folder>/schedule`.
+- Mecanismo: convención `flows/NN_<slug>/.disabled` (archivo marcador). Quitar el archivo activa el flow.
+- Cero cambios al motor ni al schema — la lógica vive en [app/server.py](app/server.py) (`_is_preview`).
+
+CLI (`flujo run flows/NN_...`) **sí** los ejecuta — está pensado para desarrollo/test local.
+
 ### 🧰 Calidad: piso de cobertura + pre-commit hooks
 
 - **Piso de cobertura**: `pytest` ahora exige `--cov-fail-under=54` con el alcance ampliado (`engine + actions + app + decision`, antes faltaba `decision`). Línea base 54.46% medida en CI 2026-06-02. Cualquier PR que baje de 54% rompe CI. Subir el piso es un PR aparte cuando suba la cobertura real.

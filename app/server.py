@@ -55,6 +55,11 @@ def _safe_folder(raw: str) -> str | None:
     return raw
 
 
+def _is_preview(flow: dict) -> bool:
+    """True si el flow es preview/no-operativo (marcador `.disabled` en su carpeta)."""
+    return (Path(flow['flow_path']) / '.disabled').exists()
+
+
 def _resolve_under_root(user_path: str) -> Path | None:
     """Resuelve ``user_path`` y garantiza que queda bajo ROOT.
 
@@ -699,6 +704,11 @@ document.addEventListener('keydown', e => {
       e.preventDefault();
       showTab('run');
       card.scrollIntoView({behavior: 'smooth', block: 'center'});
+      // Preview cards (.disabled marker) no se ejecutan ni por atajo ni por click
+      if (card.getAttribute('data-preview') === 'true') {
+        showToast('🚧 Flow ' + (idx + 1) + ' en preview — aún no operativo');
+        return;
+      }
       runFlow(folder, null, { fromShortcut: true });
       showToast('▶ Atajo Alt+' + e.key + ' → flow ' + (idx + 1));
     }
@@ -762,6 +772,18 @@ def _flow_card_run_tab(flow: dict, latest: dict | None, index: int) -> str:
     shortcut = _SHORTCUT_LABELS[index] if index < len(_SHORTCUT_LABELS) else ''
     shortcut_html = f'<span class="kbd-hint"><kbd>{shortcut}</kbd></span>' if shortcut else ''
 
+    preview = _is_preview(flow)
+    preview_badge_html = (
+        '<span class="badge idle" title="Caso en preview — declarado en el catálogo pero aún no operativo. Ver docs/ROADMAP.md."><span class="dot"></span>🚧 preview</span>'
+        if preview else ''
+    )
+    if preview:
+        run_button_html = (
+            '<button class="ghost" disabled title="Caso en preview — aún no operativo. Roadmap: docs/ROADMAP.md">🚧 Preview · no operativo</button>'
+        )
+    else:
+        run_button_html = f'<button class="primary" onclick="runFlow(\'{flow["folder"]}\', this)">Ejecutar</button>'
+
     # Caso especial: flow 02 (browser) lleva input inline para la URL a capturar
     # Caso especial: flow 03 (inventory) lleva input inline para la carpeta a explorar
     inline_input_html = ''
@@ -783,18 +805,19 @@ def _flow_card_run_tab(flow: dict, latest: dict | None, index: int) -> str:
         '''
 
     return f'''
-    <div class="card flow-card" data-folder="{html.escape(flow['folder'])}">
+    <div class="card flow-card" data-folder="{html.escape(flow['folder'])}" data-preview="{'true' if preview else 'false'}">
       <div class="meta">
         <span>{html.escape(flow.get('family','general'))}</span>
         <span>{len(flow.get('steps',[]))} pasos</span>
         {shortcut_html}
+        {preview_badge_html}
       </div>
       <h3>{html.escape(flow['name'])}</h3>
       <div class="muted">{html.escape(flow['description'] or '')}</div>
       <div class="meta"><span class="path">{html.escape(flow['folder'])}</span></div>
       {inline_input_html}
       <div class="actions">
-        <button class="primary" onclick="runFlow('{flow['folder']}', this)">Ejecutar</button>
+        {run_button_html}
         <a class="button ghost" href="/flow/{flow['folder']}">Detalle</a>
       </div>
       <div class="live-status">{status_html}</div>
@@ -1582,6 +1605,8 @@ class AppHandler(BaseHTTPRequestHandler):
             flow = get_flow_by_folder(folder)
             if not flow:
                 return self._send_json({'ok': False, 'error': 'flow no encontrado'}, status=404)
+            if _is_preview(flow):
+                return self._send_json({'ok': False, 'error': 'flow en preview — aún no operativo (ver docs/ROADMAP.md)'}, status=409)
             # Lee overrides del body (JSON) si los hay
             overrides: dict[str, Any] = {}
             length = int(self.headers.get('Content-Length', '0') or '0')
@@ -1633,6 +1658,8 @@ class AppHandler(BaseHTTPRequestHandler):
             flow = get_flow_by_folder(folder)
             if not flow:
                 return self._send_json({'ok': False, 'error': 'flow no encontrado'}, status=404)
+            if _is_preview(flow):
+                return self._send_json({'ok': False, 'error': 'flow en preview — aún no operativo (ver docs/ROADMAP.md)'}, status=409)
             try:
                 state = Orchestrator(Path(flow['flow_path'])).run()
                 return self._send_json({
@@ -1651,6 +1678,8 @@ class AppHandler(BaseHTTPRequestHandler):
             flow = get_flow_by_folder(folder)
             if not flow:
                 return self._send_html(html_page('Error', '<div class="empty"><h4>Flujo no encontrado</h4></div>'), status=404)
+            if _is_preview(flow):
+                return self._send_html(html_page('Preview', '<div class="card" style="background:var(--warning-soft);color:var(--warning)">🚧 Este flow está en preview y aún no es operativo. Ver <a href="https://github.com/vladimiracunadev-create/automa-pc/blob/main/docs/ROADMAP.md">docs/ROADMAP.md</a>.</div>'), status=409)
             try:
                 state = Orchestrator(Path(flow['flow_path'])).run()
                 return self._redirect(f"/run/{state['flow_id']}/{state['run_id']}")
@@ -1673,6 +1702,9 @@ class AppHandler(BaseHTTPRequestHandler):
             folder = _safe_folder(parts[1] if len(parts) > 1 else '')
             if folder is None:
                 return self._send_html(html_page('Error', '<div class="empty"><h4>Folder inválido</h4></div>'), status=400)
+            preview_flow = get_flow_by_folder(folder)
+            if preview_flow and _is_preview(preview_flow):
+                return self._send_html(html_page('Preview', '<div class="card" style="background:var(--warning-soft);color:var(--warning)">🚧 No se puede programar un flow en preview. Ver <a href="https://github.com/vladimiracunadev-create/automa-pc/blob/main/docs/ROADMAP.md">docs/ROADMAP.md</a>.</div>'), status=409)
             form = self._read_form()
             enabled = 'enabled' in form
             cron_expression = (form.get('cron_expression', [''])[0] or '').strip() or None
