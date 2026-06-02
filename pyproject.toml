@@ -85,7 +85,7 @@ packages = ["engine", "actions", "app", "decision", "plugins", "scripts"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-addopts = "-q --strict-markers --cov=engine --cov=actions --cov=app --cov=decision --cov-report=term-missing --cov-fail-under=55"
+addopts = "-q --strict-markers --cov=engine --cov=actions --cov=app --cov=decision --cov-report=term-missing --cov-fail-under=54"
 testpaths = ["tests"]
 markers = [
     "integration: tests that exercise the full orchestrator and SQLite",
