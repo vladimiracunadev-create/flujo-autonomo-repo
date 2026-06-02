@@ -5,6 +5,11 @@ Todas las versiones notables de Automa se documentan acá. El formato sigue
 
 ## [Unreleased]
 
+### 🧰 Calidad: piso de cobertura + pre-commit hooks
+
+- **Piso de cobertura**: `pytest` ahora exige `--cov-fail-under=55` (línea base medida en CI 2026-06-01). Cualquier PR que baje de 55% rompe CI. Subir el piso es un PR aparte cuando suba la cobertura real.
+- **Pre-commit hooks**: nuevo `.pre-commit-config.yaml` con `ruff` (check + format), `markdownlint-cli2`, validadores de `yaml/json/toml`, trailing-whitespace, EOF y bloqueo de archivos > 500 KB. Setup: `uv run pre-commit install`. Reduce ~50× el feedback loop vs esperar a GitHub Actions.
+
 ### 🎨 Rebrand: `flujo-autonomo-repo` → `automa-pc`
 
 Renombre del proyecto a **Automa**. Es un cambio cosmético pero con superficie técnica: package name, CLI, env vars y URLs cambian. Migración (una vez):

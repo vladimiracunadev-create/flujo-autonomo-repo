@@ -1,0 +1,39 @@
+# Pre-commit hooks — corren localmente antes de cada commit.
+# Instalación: pre-commit install
+# Ejecutar manualmente sobre todo el repo: pre-commit run --all-files
+#
+# Los hooks duplican parte de lo que valida CI (ruff, formato, yaml),
+# pero el ciclo local es ~50× más rápido que esperar a GitHub Actions.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.svg$
+      - id: end-of-file-fixer
+        exclude: \.svg$
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-json
+        exclude: ^flows/.*/manifest\.json$  # validados por scripts/validate_project.py
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.15.0
+    hooks:
+      - id: markdownlint-cli2
+        files: \.md$
+        exclude: ^(CHANGELOG\.md|\.claude/)

@@ -8,6 +8,9 @@
 # Con uv (recomendado)
 uv sync --extra dev --extra schema
 
+# Hooks de pre-commit (corren ruff/yaml/json/markdown antes de cada commit)
+uv run pre-commit install
+
 # Para Playwright (caso 02 y 07)
 python -m playwright install chromium
 ```
