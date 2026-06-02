@@ -1,4 +1,4 @@
-# 🤝 Contribuir a Flujo Autónomo
+# 🤝 Contribuir a Automa
 
 > Antes de contribuir leé el [CHANGELOG.md](CHANGELOG.md) para entender el estado actual y los cambios recientes.
 
@@ -73,7 +73,7 @@ Cualquier feature visible al usuario debe actualizar:
 
 ## 🐛 Reportar bugs
 
-- Issues en [GitHub Issues](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/issues).
+- Issues en [GitHub Issues](https://github.com/vladimiracunadev-create/automa-pc/issues).
 - Vulnerabilidades de seguridad: ver [SECURITY.md](SECURITY.md), **no en issues públicos**.
 
 ## 📜 Licencia

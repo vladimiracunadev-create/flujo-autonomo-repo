@@ -14,7 +14,7 @@ Solo la rama `main` recibe actualizaciones de seguridad activas.
 > [!IMPORTANT]
 > **No abras un issue público** para vulnerabilidades. Reporta primero en privado.
 
-Canal preferido: [GitHub Security Advisories](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/security/advisories/new) (privado).
+Canal preferido: [GitHub Security Advisories](https://github.com/vladimiracunadev-create/automa-pc/security/advisories/new) (privado).
 
 Alternativa: email a `vladimir.acuna.dev@gmail.com` con asunto `[SECURITY]`.
 
@@ -54,8 +54,8 @@ Alternativa: email a `vladimir.acuna.dev@gmail.com` con asunto `[SECURITY]`.
 ## Hardening recomendado para usuarios
 
 - Mantén el panel atado a `127.0.0.1` (default). No lo expongas en red sin reverse proxy + TLS.
-- Define `FLUJO_WEBHOOK_TOKEN` antes de habilitar webhooks entrantes.
-- Define `FLUJO_PANEL_TOKEN` si compartís la máquina con otros usuarios o tenés sospecha de browser/proceso hostil local. Sin el token, el panel acepta POSTs locales sin Origin/Referer extraño; con el token, exige `X-Flujo-Token` en **todas** las mutaciones.
+- Define `AUTOMA_WEBHOOK_TOKEN` antes de habilitar webhooks entrantes.
+- Define `AUTOMA_PANEL_TOKEN` si compartís la máquina con otros usuarios o tenés sospecha de browser/proceso hostil local. Sin el token, el panel acepta POSTs locales sin Origin/Referer extraño; con el token, exige `X-Automa-Token` en **todas** las mutaciones.
 - Declara `allowed_actions` y `allowed_paths` en flows productivos.
 - Revisa `manifest.json` antes de ejecutar un flow nuevo de origen externo.
 - Mantén `db/runs.db`, `output/`, `state/`, `logs/` y `secrets/` ignorados por git (default).

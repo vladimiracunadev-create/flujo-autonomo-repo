@@ -2,7 +2,7 @@
 
 > Tres niveles de validación: schema, pytest e integración real.
 
-![Validación](assets/cover-flujo-autonomo.svg)
+![Validación](assets/cover-automa-pc.svg)
 
 El repositorio tiene tres niveles de validación, ordenados de barato a caro: schema + estructura, suite pytest e integración real.
 
@@ -11,7 +11,7 @@ El repositorio tiene tres niveles de validación, ordenados de barato a caro: sc
 ```bash
 python scripts/validate_project.py
 # o, tras instalar el paquete:
-flujo-validate
+automa-validate
 ```
 
 Comprueba:

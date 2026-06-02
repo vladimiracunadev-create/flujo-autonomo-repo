@@ -2,7 +2,7 @@
 
 > Contrato para escribir nuevos manifests, validados por JSON Schema.
 
-![Crear Flujos](assets/cover-flujo-autonomo.svg)
+![Crear Flujos](assets/cover-automa-pc.svg)
 
 Un flow es un proceso ejecutable dentro de `flows/<nombre>/`. Debe ser comprensible para una persona y válido para el motor (JSON Schema en `schemas/manifest.schema.json`).
 

@@ -1,8 +1,8 @@
-# 📘 Manual de Usuario · Flujo Autónomo
+# 📘 Manual de Usuario · Automa
 
 > Manual operativo con **2 casos de captura claramente diferenciados**: caso 1 captura el escritorio, caso 12 captura el navegador. Ambos generan PNG reales (no JSON).
 
-![Cover](assets/cover-flujo-autonomo.svg)
+![Cover](assets/cover-automa-pc.svg)
 
 > [!IMPORTANT]
 > Esta versión limpia el sistema (0 corridas en histórico, 0 schedules) y agrega el caso 12 con **Playwright** para distinguir captura de escritorio vs captura de navegador.

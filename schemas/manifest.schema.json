@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/vladimiracunadev-create/flujo-autonomo-repo/schemas/manifest.schema.json",
-  "title": "Flujo Autónomo manifest",
+  "$id": "https://github.com/vladimiracunadev-create/automa-pc/schemas/manifest.schema.json",
+  "title": "Automa manifest",
   "description": "Contrato declarativo de un flow. Cada caso vive en flows/<folder>/manifest.json.",
   "type": "object",
   "required": ["id", "name", "steps"],

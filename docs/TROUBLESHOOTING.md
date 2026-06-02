@@ -119,5 +119,5 @@ gh auth status
 Si Git rechaza el repo por ownership distinto:
 
 ```bash
-git config --global --add safe.directory C:/dev/flujo-autonomo-repo
+git config --global --add safe.directory C:/dev/automa-pc
 ```

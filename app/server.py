@@ -1403,8 +1403,8 @@ class AppHandler(BaseHTTPRequestHandler):
     # Modelo de protección de endpoints mutadores (POST que disparan flows,
     # editan config, programan scheduler, escriben en disco):
     #
-    #   1. Si el operador define FLUJO_PANEL_TOKEN, **toda** mutación exige
-    #      el header `X-Flujo-Token` con valor exacto (comparación constant-
+    #   1. Si el operador define AUTOMA_PANEL_TOKEN, **toda** mutación exige
+    #      el header `X-Automa-Token` con valor exacto (comparación constant-
     #      time vía hmac.compare_digest, CWE-208).
     #
     #   2. Si no hay token configurado (modo "panel local sin fricción"),
@@ -1417,35 +1417,35 @@ class AppHandler(BaseHTTPRequestHandler):
     #      — el browser siempre envía Origin en cross-site fetch.
     #
     #   3. El webhook entrante (/api/hook/) sigue exigiendo
-    #      FLUJO_WEBHOOK_TOKEN siempre (es la única superficie diseñada
+    #      AUTOMA_WEBHOOK_TOKEN siempre (es la única superficie diseñada
     #      para llamadas no-locales).
 
     def _check_token(self, env_name: str) -> bool:
         expected = get_secret(env_name)
         if not expected:
             return False
-        provided = self.headers.get('X-Flujo-Token', '')
+        provided = self.headers.get('X-Automa-Token', '')
         if not provided:
             return False
         return hmac.compare_digest(provided, expected)
 
     def _check_webhook_token(self) -> bool:
-        return self._check_token('FLUJO_WEBHOOK_TOKEN')
+        return self._check_token('AUTOMA_WEBHOOK_TOKEN')
 
     def _authorize_mutation(self) -> tuple[bool, str]:
         """Devuelve (ok, error_msg) para endpoints mutadores."""
         # Modo 1: token explícito configurado.
-        panel_token = get_secret('FLUJO_PANEL_TOKEN')
+        panel_token = get_secret('AUTOMA_PANEL_TOKEN')
         if panel_token:
-            if self._check_token('FLUJO_PANEL_TOKEN'):
+            if self._check_token('AUTOMA_PANEL_TOKEN'):
                 return True, ''
-            return False, 'token inválido (FLUJO_PANEL_TOKEN requerido)'
+            return False, 'token inválido (AUTOMA_PANEL_TOKEN requerido)'
 
         # Modo 2: sin token, exigir loopback + Origin/Referer consistentes.
         host = (self.headers.get('Host') or '').strip()
         host_only = host.split(':', 1)[0].lower()
         if host_only not in {'127.0.0.1', 'localhost', '[::1]', '::1'}:
-            return False, 'Host no loopback: cliente remoto debe usar FLUJO_PANEL_TOKEN'
+            return False, 'Host no loopback: cliente remoto debe usar AUTOMA_PANEL_TOKEN'
 
         expected_origin = f'http://{host}'
         origin = self.headers.get('Origin')
@@ -1627,7 +1627,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 return self._send_json({'ok': False, 'error': 'folder inválido'}, status=400)
             if not self._check_webhook_token():
                 return self._send_json(
-                    {'ok': False, 'error': 'token inválido o FLUJO_WEBHOOK_TOKEN no configurado'},
+                    {'ok': False, 'error': 'token inválido o AUTOMA_WEBHOOK_TOKEN no configurado'},
                     status=401,
                 )
             flow = get_flow_by_folder(folder)

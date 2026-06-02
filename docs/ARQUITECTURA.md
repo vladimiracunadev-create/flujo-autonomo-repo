@@ -2,9 +2,9 @@
 
 > Diseño técnico, capas y flujo de ejecución del orquestador.
 
-![Arquitectura](assets/cover-flujo-autonomo.svg)
+![Arquitectura](assets/cover-automa-pc.svg)
 
-Flujo Autónomo está organizado como un motor local de automatización declarativa. Su unidad mínima es un flow: una carpeta dentro de `flows/` con `manifest.json`, contexto de ejemplo y documentación corta. El motor aplica una política de sandbox por flow y persiste cada corrida en SQLite + snapshots JSON + eventos JSONL.
+Automa está organizado como un motor local de automatización declarativa. Su unidad mínima es un flow: una carpeta dentro de `flows/` con `manifest.json`, contexto de ejemplo y documentación corta. El motor aplica una política de sandbox por flow y persiste cada corrida en SQLite + snapshots JSON + eventos JSONL.
 
 ---
 
@@ -143,13 +143,13 @@ El panel expone:
 - `/api/metrics` — agregaciones (totales, ventana móvil, top acciones lentas/fallidas/con retries).
 - `/metrics` — formato Prometheus text.
 - `/metrics/dashboard` — vista HTML de las métricas.
-- `POST /api/hook/<folder>` — disparador externo autenticado por header `X-Flujo-Token`.
+- `POST /api/hook/<folder>` — disparador externo autenticado por header `X-Automa-Token`.
 
 ---
 
 ## 📦 Empaquetado Y CI
 
-- `pyproject.toml` declara dependencias, extras (`dev`, `schema`) y entry-points para CLI (`flujo`, `flujo-panel`, `flujo-validate`) y para acciones built-in (`flujo.actions`).
+- `pyproject.toml` declara dependencias, extras (`dev`, `schema`) y entry-points para CLI (`automa`, `automa-panel`, `automa-validate`) y para acciones built-in (`flujo.actions`).
 - CI en GitHub Actions usa `uv` en matriz Linux/Windows × Python 3.10/3.11/3.12: lint con ruff, validación de manifests, pytest con cobertura, smoke job.
 
 ---
@@ -161,7 +161,7 @@ El panel expone:
 - OCR local opcional.
 - Proveedor visual `mock` para pruebas sin IA externa.
 - Integración con Ollama o endpoints compatibles cuando el operador lo decide.
-- Webhook deshabilitado por defecto (requiere `FLUJO_WEBHOOK_TOKEN`).
+- Webhook deshabilitado por defecto (requiere `AUTOMA_WEBHOOK_TOKEN`).
 
 ---
 

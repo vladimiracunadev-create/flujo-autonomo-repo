@@ -1,7 +1,7 @@
 <br>
 <div align="center">
 
-# 🤖 Flujo Autónomo
+# 🤖 Automa
 
 ### Control local de tareas y acciones efectivas sobre Windows
 
@@ -15,16 +15,16 @@
 ![pytest](https://img.shields.io/badge/tests-90%20pytest-3DA639?logo=pytest&logoColor=white)
 ![Local First](https://img.shields.io/badge/local--first-sí-2D7A66)
 
-[![CI](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/ci.yml)
-[![Security](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/security.yml)
-[![Workflow security](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/workflow-security.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/actions/workflows/workflow-security.yml)
+[![CI](https://github.com/vladimiracunadev-create/automa-pc/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/automa-pc/actions/workflows/ci.yml)
+[![Security](https://github.com/vladimiracunadev-create/automa-pc/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/automa-pc/actions/workflows/security.yml)
+[![Workflow security](https://github.com/vladimiracunadev-create/automa-pc/actions/workflows/workflow-security.yml/badge.svg?branch=main)](https://github.com/vladimiracunadev-create/automa-pc/actions/workflows/workflow-security.yml)
 [![License](https://img.shields.io/badge/license-MIT-15803d.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.2.0-0f766e)](CHANGELOG.md)
 [![Security policy](https://img.shields.io/badge/security-policy-7c3aed.svg)](SECURITY.md)
 
 </div>
 
-![Flujo Autónomo cover](docs/assets/cover-flujo-autonomo.svg)
+![Automa cover](docs/assets/cover-automa-pc.svg)
 
 ---
 
@@ -108,7 +108,7 @@ CLI tras instalar:
 flujo list                                     # lista flows
 flujo run flows/05_system_healthcheck          # corre uno
 flujo scheduler --interval 2                   # scheduler en bucle
-flujo-validate                                 # JSON Schema + acciones + transitions
+automa-validate                                 # JSON Schema + acciones + transitions
 ```
 
 ---
@@ -155,7 +155,7 @@ flowchart LR
 | Scheduler con cron + lock | 🟢 Operativo | [engine/scheduler.py](engine/scheduler.py) |
 | Override de context vía API | 🟢 Operativo | `POST /api/run/<folder>` con body `{"context_overrides": {...}}` |
 | Métricas Prometheus + dashboard | 🟢 Operativo | [engine/metrics.py](engine/metrics.py) |
-| Webhooks IN | 🟢 Operativo | `POST /api/hook/<folder>` con `FLUJO_WEBHOOK_TOKEN` |
+| Webhooks IN | 🟢 Operativo | `POST /api/hook/<folder>` con `AUTOMA_WEBHOOK_TOKEN` |
 | Plugins de terceros (entry-points) | 🟢 Operativo | [engine/action_registry.py](engine/action_registry.py) |
 | **Casos avanzados (ventana real)** | 🟢 3 flows · 01 02 07 | [flows/](flows) |
 | **Casos utilitarios (solo JSON)** | 🟡 4 flows · 03 04 05 06 | mínimo aceptable, no foco |
@@ -227,7 +227,7 @@ Este repo ejecuta acciones reales sobre tu escritorio Windows. Un commit malicio
 Política de reporte de vulnerabilidades también en [SECURITY.md](SECURITY.md).
 
 > [!WARNING]
-> El webhook entrante está **deshabilitado por defecto** y requiere `FLUJO_WEBHOOK_TOKEN`. Si lo expones más allá de localhost, ponelo detrás de un reverse proxy con TLS.
+> El webhook entrante está **deshabilitado por defecto** y requiere `AUTOMA_WEBHOOK_TOKEN`. Si lo expones más allá de localhost, ponelo detrás de un reverse proxy con TLS.
 
 ---
 
@@ -321,7 +321,7 @@ Si lo que aporta valor es solo "leer JSON del sistema y dejar reporte", probable
 **[📝 Changelog](CHANGELOG.md)** ·
 **[🤝 Contribuir](CONTRIBUTING.md)** ·
 **[🛡️ Reportar vulnerabilidad](SECURITY.md)** ·
-**[🐛 Issues](https://github.com/vladimiracunadev-create/flujo-autonomo-repo/issues)**
+**[🐛 Issues](https://github.com/vladimiracunadev-create/automa-pc/issues)**
 
 Hecho con 🐍 Python · 🪟 sobre Windows · 💾 SQLite · 🛡️ Sandbox por flow
 

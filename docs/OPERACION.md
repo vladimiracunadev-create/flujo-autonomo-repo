@@ -1,8 +1,8 @@
 # 📖 Operación
 
-> Cómo usar Flujo Autónomo en un entorno local sin asumir infraestructura externa.
+> Cómo usar Automa en un entorno local sin asumir infraestructura externa.
 
-![Operación](assets/cover-flujo-autonomo.svg)
+![Operación](assets/cover-automa-pc.svg)
 
 ## 📑 Tabla de contenidos
 
@@ -54,7 +54,7 @@ Para arrancarlo:
 ```bash
 uv run python -m app.server          # con uv
 python -m app.server                 # con pip
-flujo-panel                          # tras instalar el paquete
+automa-panel                          # tras instalar el paquete
 ```
 
 Abre:
@@ -84,7 +84,7 @@ flujo list
 flujo run flows/05_system_healthcheck
 flujo run flows/03_folder_inventory --context configs/03_folder_inventory.json
 flujo scheduler --interval 2
-flujo-validate
+automa-validate
 ```
 
 Sin instalar el paquete:
@@ -191,7 +191,7 @@ force_release_lock("05_system_healthcheck")
 | 📈 `GET /metrics` | Prometheus text |
 | ✅ `GET /healthz` | check simple |
 | ⚡ `POST /api/run/<folder>` | click-to-run desde el panel |
-| 🪝 `POST /api/hook/<folder>` | disparador externo (header `X-Flujo-Token`) |
+| 🪝 `POST /api/hook/<folder>` | disparador externo (header `X-Automa-Token`) |
 
 Detalle del webhook en [INTEGRACIONES.md](INTEGRACIONES.md). Detalle de métricas en [METRICAS.md](METRICAS.md).
 
@@ -206,7 +206,7 @@ Detalle del webhook en [INTEGRACIONES.md](INTEGRACIONES.md). Detalle de métrica
 5. Ejecuta primero con `dry_run` si hay UI o clicks.
 6. Revisa detalle de corrida en panel.
 7. Activa scheduler solo cuando el flow ya corrió bien manualmente.
-8. Si lo expones a integraciones externas, configura `FLUJO_WEBHOOK_TOKEN`.
+8. Si lo expones a integraciones externas, configura `AUTOMA_WEBHOOK_TOKEN`.
 
 ---
 

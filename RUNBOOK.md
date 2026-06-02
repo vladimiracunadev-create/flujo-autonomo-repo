@@ -1,4 +1,4 @@
-# 📕 Runbook operativo · Flujo Autónomo
+# 📕 Runbook operativo · Automa
 
 > Procedimientos rápidos para operar el sistema en el día a día.
 
@@ -53,13 +53,13 @@ sqlite3 db/runs.db "SELECT outputs_json FROM runs WHERE flow_id='screen_capture_
 
 ```bash
 # 1. Define el secreto antes de levantar el panel
-export FLUJO_WEBHOOK_TOKEN=$(openssl rand -hex 32)
+export AUTOMA_WEBHOOK_TOKEN=$(openssl rand -hex 32)
 
 # 2. Reinicia el panel para que tome el secreto
 uv run python -m app.server &
 
 # 3. Dispara un flow desde curl
-curl -X POST -H "X-Flujo-Token: $FLUJO_WEBHOOK_TOKEN" \
+curl -X POST -H "X-Automa-Token: $AUTOMA_WEBHOOK_TOKEN" \
      http://127.0.0.1:8787/api/hook/05_system_healthcheck
 ```
 
