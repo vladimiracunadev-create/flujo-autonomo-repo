@@ -1,0 +1,20 @@
+{
+  "id": "explorer_open_path",
+  "name": "Abrir File Explorer en una ruta",
+  "family": "sistema",
+  "description": "Un clic = ventana de Explorer abierta en la carpeta configurada. Lanza explorer.exe con la ruta como argumento. Útil como atajo para carpetas que se visitan a diario (Descargas, proyecto activo, carpeta de logs). La ruta se configura por contexto, así que el mismo flow sirve para cualquier destino. Soporta dry_run para registrar la intención sin abrir ventana.",
+  "allowed_actions": ["ui.launch_process"],
+  "max_runtime_seconds": 5,
+  "steps": [
+    {
+      "id": "launch_explorer",
+      "action": "ui.launch_process",
+      "params": {
+        "command": "explorer.exe {{ folder_path }}",
+        "wait_seconds": 0.0,
+        "dry_run": "{{ dry_run }}"
+      },
+      "save_as": "launch_result"
+    }
+  ]
+}

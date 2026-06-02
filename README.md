@@ -39,17 +39,22 @@ El objetivo a largo plazo: tener control declarativo sobre tareas operativas rea
 
 ---
 
-## 🗂️ Catálogo actual · 7 flows operativos
+## 🗂️ Catálogo actual · 12 flows operativos
 
-Clasificados por su nivel de interacción con el sistema:
+Clasificados por su nivel de interacción con el sistema. Hoja de ruta completa en [docs/ROADMAP.md](docs/ROADMAP.md).
 
-### 🟢 Operaciones avanzadas (abren ventana real)
+### 🟢 Operaciones avanzadas (abren ventana o interactúan con componente Windows real)
 
 | Caso | Familia | Qué hace efectivamente |
 | --- | --- | --- |
 | **`📷 01_screen_capture_analyze`** | pantalla | Captura el escritorio Windows completo (mss → PNG 1920×1080) y analiza brillo/RGB. |
 | **`🌐 02_screen_capture_browser`** | navegador | Lanza Chromium headless con Playwright y captura el DOM renderizado de una URL configurable (input inline + atajo `Alt+2`). |
 | **`📋 07_browser_form_filler`** | navegador | **Operación más avanzada del repo**: lanza Chromium *visible*, navega al formulario de 10 campos `data/web/form_demo.html`, elige uno de 100 registros del seed sin repetir, los rellena uno por uno con `slow_mo` (observable a ojo), submit, valida JS y guarda payload. |
+| **`🔒 08_windows_lock_workstation`** | sistema | Bloquea el equipo (`Win+L`). Un clic = sesión bloqueada. |
+| **`🖥️ 09_show_desktop_capture`** | pantalla | Minimiza todas las ventanas (`Win+D`), espera 800 ms y captura el escritorio limpio en PNG. |
+| **`📁 10_explorer_open_path`** | sistema | Abre `explorer.exe` en una ruta configurable (por defecto `C:\Users`). |
+| **`⚙️ 11_settings_open_section`** | sistema | Abre la app **Configuración** de Windows en sección configurable vía URI `ms-settings:` (red, pantalla, sonido…). |
+| **`👁️ 12_desktop_ocr_inventory`** | pantalla | Captura el escritorio, ejecuta OCR sobre la imagen y guarda **todos los textos visibles** (con bboxes) como inventario JSON. |
 
 ### 🟡 Utilidades sobre el equipo (solo lectura · solo JSON)
 
@@ -60,7 +65,7 @@ Clasificados por su nivel de interacción con el sistema:
 | `🖥️ 05_system_healthcheck` | sistema | Snapshot CPU/RAM/disco con `psutil` + reglas de alerta. |
 | `⚙️ 06_process_watchdog` | sistema | Top 10 procesos con alertas por umbral de RAM/CPU. |
 
-> Los flows 03–06 son **utilidades correctas pero pobres en valor**. La inversión próxima va a flows del bloque 🟢 (más interacción real, no más telemetría pasiva).
+> Los flows 03–06 son **utilidades correctas pero pobres en valor**. La inversión próxima va a flows del bloque 🟢 (más interacción real, no más telemetría pasiva). Roadmap detallado → [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ---
 
@@ -171,13 +176,17 @@ flowchart LR
 
 | Tecla | Acción |
 | --- | --- |
-| `Alt+1`…`Alt+7` | Ejecutar flow N |
+| `Alt+1`…`Alt+9` | Ejecutar flow 1…9 |
+| `Alt+0` / `Alt+-` / `Alt+=` | Ejecutar flow 10 / 11 / 12 |
 | `Alt+E` / `Alt+P` / `Alt+H` | Tab Ejecutar / Programadas / Histórico |
 | `Alt+M` | Dashboard de Métricas |
 | `?` o `F1` | Modal de ayuda |
 | `Esc` | Cerrar modal |
 
 Los flows 02, 03 y 07 abren un **modal especial pidiendo input** cuando se disparan por atajo (URL, ruta de carpeta, etc).
+
+> [!NOTE]
+> El panel mapea hasta 12 atajos `Alt`. Si el catálogo crece más allá de 12 flows, los nuevos casos se ejecutan haciendo clic en su card del panel.
 
 ---
 
@@ -304,12 +313,15 @@ Toda acción third-party va pinned a SHA — política completa en [SECURITY.md]
 
 ## 🛣️ Próximos pasos
 
-La dirección clara: **más operaciones avanzadas reales sobre Windows**, menos telemetría pasiva.
+La dirección clara: **más operaciones avanzadas reales sobre Windows**, menos telemetría pasiva. El sistema **se construye agregando casos**, no refactorizando el motor.
 
-- 🪟 Casos que abran aplicaciones Windows nativas (Excel, Word, PDF readers) y operen sobre ellas.
-- 🔁 Pipelines visuales con múltiples ventanas coordinadas.
-- 🎯 Validación de resultados contra criterios reales del DOM/sistema.
-- 🧬 Datasets seed más ricos por caso (hoy solo el 07 tiene 100 registros).
+**Roadmap completo y por fases → [docs/ROADMAP.md](docs/ROADMAP.md)**
+
+Resumen:
+
+- ✅ **Fase 1 (esta versión)**: 5 casos nuevos sobre componentes nativos de Windows usando solo acciones ya existentes (08–12).
+- 📋 **Fase 2 (siguiente)**: 8 casos que requieren **acciones nuevas mínimas** en `actions/` (`system.read_clipboard`, `screen.capture_active_window`, `screen.capture_region`, `system.run_powershell`). Estrictamente aditivo — nada cambia en lo existente.
+- 🔭 **Fase 3 (ideación)**: apps nativas (Excel, Word, PDF readers, Outlook, Edge) con sincronización determinista y anclaje visual por templates.
 
 Si lo que aporta valor es solo "leer JSON del sistema y dejar reporte", probablemente exista una herramienta nativa más simple. La justificación de este producto es la **interacción declarativa con la sesión Windows**.
 

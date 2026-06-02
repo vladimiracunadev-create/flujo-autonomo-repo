@@ -6,8 +6,8 @@
 
 Un flow es un proceso ejecutable dentro de `flows/<nombre>/`. Debe ser comprensible para una persona y válido para el motor (JSON Schema en `schemas/manifest.schema.json`).
 
-> [!TIP]
-> Apunta tu `manifest.json` al schema con `"$schema": "../../schemas/manifest.schema.json"` y obtendrás autocompletado en VS Code y JetBrains.
+> [!NOTE]
+> El JSON Schema vive en `schemas/manifest.schema.json`. Si tu IDE soporta autocompletado por schema **sin** la propiedad `$schema` inline (VS Code: `json.schemas` en `.vscode/settings.json`; JetBrains: User Schemas), apúntalo desde la configuración global del proyecto — el validador del repo rechaza `$schema` como propiedad inline en el manifest.
 
 ---
 
