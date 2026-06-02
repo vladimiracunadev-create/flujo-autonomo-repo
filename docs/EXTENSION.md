@@ -4,7 +4,7 @@
 
 ![Extension](assets/cover-automa-pc.svg)
 
-`LazyActionRegistry` descubre acciones publicadas como entry-points en el grupo `flujo.actions`. Cualquier paquete instalado en el mismo entorno puede aportar acciones nuevas sin tocar este repo.
+`LazyActionRegistry` descubre acciones publicadas como entry-points en el grupo `automa.actions`. Cualquier paquete instalado en el mismo entorno puede aportar acciones nuevas sin tocar este repo.
 
 ## Estructura de un paquete externo
 
@@ -31,7 +31,7 @@ name = "mi-flujo-extension"
 version = "0.1.0"
 dependencies = []
 
-[project.entry-points."flujo.actions"]
+[project.entry-points."automa.actions"]
 "finanzas.calcular_iva" = "mi_flujo_extension.actions:calcular_iva"
 ```
 

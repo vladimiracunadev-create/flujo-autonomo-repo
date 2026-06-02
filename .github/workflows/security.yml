@@ -228,7 +228,7 @@ jobs:
           # 'uv sync') antes de auditar: no existe en PyPI y con --strict
           # pip-audit lo trataría como fallo aun usando --skip-editable.
           # 'uv run --no-sync' evita que uv lo reinstale al ejecutar pip-audit.
-          uv pip uninstall flujo-autonomo || true
+          uv pip uninstall automa-pc || true
           set +e
           uv run --no-sync pip-audit --strict --desc --skip-editable
           rc=$?

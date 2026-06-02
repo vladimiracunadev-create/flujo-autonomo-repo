@@ -720,7 +720,7 @@ def html_page(title: str, body: str, active_nav: str = '') -> bytes:
 <header class="top">
   <div class="row">
     <div>
-      <h1>Flujo Autónomo</h1>
+      <h1>Automa</h1>
       <div class="sub">Orquestador local · panel operativo</div>
     </div>
     <div class="nav">
@@ -904,7 +904,7 @@ def render_home() -> bytes:
       </table>
     </div>
     '''
-    return html_page('Centro de procesos · Flujo Autónomo', body, active_nav='home')
+    return html_page('Centro de procesos · Automa', body, active_nav='home')
 
 
 def _run_first_image(run: dict) -> dict | None:
@@ -1035,7 +1035,7 @@ def render_flow_info(folder: str) -> bytes:
       <pre>{html.escape(manifest_text)}</pre>
     </details>
     '''
-    return html_page(f'{flow["name"]} · Flujo Autónomo', body)
+    return html_page(f'{flow["name"]} · Automa', body)
 
 
 def render_flow_config(folder: str, message: str = '') -> bytes:
@@ -1358,7 +1358,7 @@ def render_metrics_dashboard() -> bytes:
       </div>
     </div>
     '''
-    return html_page('Métricas · Flujo Autónomo', body)
+    return html_page('Métricas · Automa', body)
 
 
 class AppHandler(BaseHTTPRequestHandler):

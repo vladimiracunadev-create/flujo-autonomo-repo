@@ -63,7 +63,7 @@ sequenceDiagram
 - [engine/manifest_schema.py](../engine/manifest_schema.py): validación contra `schemas/manifest.schema.json` con fallback estructural si `jsonschema` no está disponible.
 - [engine/sandbox.py](../engine/sandbox.py): `SandboxPolicy` con `allowed_actions`, `required_secrets`, `allowed_paths` y `max_runtime_seconds`.
 - [engine/orchestrator.py](../engine/orchestrator.py): gobierna la corrida completa.
-- [engine/action_registry.py](../engine/action_registry.py): resuelve acciones de forma perezosa. Descubre extensiones de terceros vía entry-points `flujo.actions`.
+- [engine/action_registry.py](../engine/action_registry.py): resuelve acciones de forma perezosa. Descubre extensiones de terceros vía entry-points `automa.actions`.
 - [engine/template.py](../engine/template.py): reemplaza placeholders.
 - [engine/conditions.py](../engine/conditions.py): evalúa `when` y condiciones de transición.
 - [engine/database.py](../engine/database.py): persiste catálogo, runs, steps, events, configs, schedules y `run_locks`.
@@ -149,7 +149,7 @@ El panel expone:
 
 ## 📦 Empaquetado Y CI
 
-- `pyproject.toml` declara dependencias, extras (`dev`, `schema`) y entry-points para CLI (`automa`, `automa-panel`, `automa-validate`) y para acciones built-in (`flujo.actions`).
+- `pyproject.toml` declara dependencias, extras (`dev`, `schema`) y entry-points para CLI (`automa`, `automa-panel`, `automa-validate`) y para acciones built-in (`automa.actions`).
 - CI en GitHub Actions usa `uv` en matriz Linux/Windows × Python 3.10/3.11/3.12: lint con ruff, validación de manifests, pytest con cobertura, smoke job.
 
 ---
